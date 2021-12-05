@@ -16,12 +16,10 @@ fn main() {
     let world = world.split_by_color(Color::with_value(0)).unwrap();
     let size = world.size();
     let rank = world.rank();
-    let k = 2;
+    let k = 8;
 
-    // let mut arr = vec![rank; (k*(rank+1)) as usize];
-    // let mut arr = vec![rank; (rank+1) as usize];
-    let mut arr = vec![rank; (1e6) as usize];
-    // all_to_all_kwayv(&mut arr, k, world);
+    let nparticles = 1e6;
+    let mut arr = vec![rank; nparticles as usize];
 
     let mut buckets: Vec<Vec<i32>> = vec![Vec::new(); (size-1) as usize];
 
@@ -39,20 +37,20 @@ fn main() {
 
     let world = universe.world();
     let intrinsic = Instant::now();
-    let mut b = all_to_all(world, size, buckets);
+    all_to_all(world, size, buckets);
     times.insert("intrinsic".to_string(), intrinsic.elapsed().as_millis());
 
     if rank == 0 {
         println!(
-            "{:?}, {:?}, {:?}",
+            "{:?} {:?}, {:?}, {:?}",
             size,
+            nparticles,
             times.get(&"kway".to_string()).unwrap(),
             times.get(&"intrinsic".to_string()).unwrap()
         );
-        assert_eq!(arr.len(), b.len());
-        arr.sort();
-        b.sort();
-        assert_eq!(arr, b);
-        // println!("A: {:?} B: {:?}", a.len(), b.len());
+        // assert_eq!(arr.len(), b.len());
+        // arr.sort();
+        // b.sort();
+        // assert_eq!(arr, b);
     }
 }
