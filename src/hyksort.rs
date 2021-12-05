@@ -5,12 +5,6 @@ use mpi::datatype::{Partition, PartitionMut};
 use mpi::{Count, Address};
 
 
-// #[cfg(feature = "user-operations")]
-// use libffi::middle::{Cif, Closure, Type};
-
-use crate::ffi;
-// use crate::ffi::MPI_Op;
-
 pub fn modulo(a: i32, b: i32) -> i32 {
     ((a % b) + b) % b
 }

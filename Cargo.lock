@@ -76,13 +76,6 @@ checksum = "bef38d45163c2f1dde094a7dfd33ccf595c92905c8f8f4fdc18d06fb1037718a"
 [[package]]
 name = "build-probe-mpi"
 version = "0.1.1"
-dependencies = [
- "pkg-config",
-]
-
-[[package]]
-name = "build-probe-mpi"
-version = "0.1.1"
 source = "git+https://github.com/skailasa/rsmpi#8b17440cd652096aa5dc17db7c2eefd026782dd3"
 dependencies = [
  "pkg-config",
@@ -197,9 +190,7 @@ dependencies = [
 name = "hyksort"
 version = "0.1.0"
 dependencies = [
- "libffi",
  "mpi",
- "mpi-sys 0.2.0",
 ]
 
 [[package]]
@@ -279,22 +270,13 @@ name = "mpi"
 version = "0.6.0"
 source = "git+https://github.com/skailasa/rsmpi#8b17440cd652096aa5dc17db7c2eefd026782dd3"
 dependencies = [
- "build-probe-mpi 0.1.1 (git+https://github.com/skailasa/rsmpi)",
+ "build-probe-mpi",
  "conv",
  "libffi",
  "memoffset",
- "mpi-sys 0.2.0 (git+https://github.com/skailasa/rsmpi)",
+ "mpi-sys",
  "once_cell",
  "smallvec",
-]
-
-[[package]]
-name = "mpi-sys"
-version = "0.2.0"
-dependencies = [
- "bindgen",
- "build-probe-mpi 0.1.1",
- "cc",
 ]
 
 [[package]]
@@ -303,7 +285,7 @@ version = "0.2.0"
 source = "git+https://github.com/skailasa/rsmpi#8b17440cd652096aa5dc17db7c2eefd026782dd3"
 dependencies = [
  "bindgen",
- "build-probe-mpi 0.1.1 (git+https://github.com/skailasa/rsmpi)",
+ "build-probe-mpi",
  "cc",
 ]
 
