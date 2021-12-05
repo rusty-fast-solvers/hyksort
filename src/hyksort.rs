@@ -17,92 +17,66 @@ pub fn modulo(a: i32, b: i32) -> i32 {
 
 pub fn all_to_all_kwayv(
     arr: &mut Vec<i32>,
-    mut kway: i32,
+    mut k: i32,
     mut comm: UserCommunicator
 ) {
 
-    let mut npes = comm.size();
-    let mut myrank = comm.rank();
+    let mut p = comm.size();
+    let mut rank = comm.rank();
 
-    let mut tot_size: i32 = 0;
-    let mut nelem: i32 = arr.len() as i32;
+    let mut problem_size: i32 = 0;
+    let mut arr_len: i32 = arr.len() as i32;
 
-    comm.all_reduce_into(&nelem, &mut tot_size, SystemOperation::sum());
-
-    // Perform local sort
-    // arr.sort();
+    comm.all_reduce_into(&arr_len, &mut problem_size, SystemOperation::sum());
 
     // Allocate all buffers
-    let mut arr_ = vec![0; (nelem*2) as usize];
-    // let mut arr__ = vec![0; (nelem*2) as usize];
+    let mut arr_ = vec![0; (arr_len*2) as usize];
 
+    while (p > 1 && problem_size>0) {
 
-    while (npes > 1 && tot_size>0) {
-
-        if kway > npes {
-            kway = npes;
+        if k > p {
+            k = p;
         }
 
         // Find size of color block
-        let blk_size = npes/kway;
-        assert_eq!(blk_size*kway, npes);
+        let color_size = p/k;
+        assert_eq!(color_size*k, p);
 
-        let blk_id = myrank/blk_size;
-        let new_pid = modulo(myrank, blk_size);
+        let color = rank/color_size;
+        let new_rank = modulo(rank, color_size);
 
-        // Determine the splitters (placeholder for parallel select algorithm)
-        let split_key = vec![1; kway as usize];
-
-        // Communication
+        // Communicate
         {
             // Determine send size
-            let mut send_size: Vec<i32> = vec![0; kway as usize];
-            let mut send_disp: Vec<i32> = vec![0; (kway+1) as usize];
-
-            send_disp[0] = 0;
-            // Send whole message every time (no bucketing)
-            // send_disp[kway as usize] = arr.len() as i32;
+            let mut send_size: Vec<i32> = vec![0; k as usize];
+            let mut send_disp: Vec<i32> = vec![0; (k+1) as usize];
             let msg_size = arr.len() as i32;
-            send_disp[kway as usize] = msg_size*kway;
+            // Send whole message every time (no bucketing)
+            send_disp[0] = 0;
+            send_disp[k as usize] = msg_size*k;
 
-            // // Placeholders due to fake split keys
-            // for i in 0..kway {
-            //     send_disp[i as usize] = (myrank+1)*i;
-            // }
-
-            // for i in 0..kway {
-            //     send_size[i as usize] = send_disp[(i+1) as usize]-send_disp[i as usize];
-            // }
-
-            for i in 0..kway {
+            for i in 0..k {
                 send_size[i as usize] = msg_size;
             }
 
-            for i in 0..kway {
+            for i in 0..k {
                 send_disp[i as usize] = i*msg_size;
             }
 
-
-            // Testing above code
-            // println!("HERE {:?} {:?} {:?}", myrank, send_disp, send_size);
-
             // Determine receive sizes
-
             let mut recv_iter: i32 = 0;
-            let mut recv_cnt: Vec<i32> = vec![0; kway as usize];
-            let mut recv_size: Vec<i32> = vec![0; kway as usize];
-            let mut recv_disp: Vec<i32> = vec![0; (kway+1) as usize];
+            let mut recv_cnt: Vec<i32> = vec![0; k as usize];
+            let mut recv_size: Vec<i32> = vec![0; k as usize];
+            let mut recv_disp: Vec<i32> = vec![0; (k+1) as usize];
 
-            for i_ in 0..=(kway/2) {
-                let i1 = modulo(blk_id+i_, kway);
-                let i2 = modulo(blk_id+kway-i_, kway);
+            for i_ in 0..=(k/2) {
+                let i1 = modulo(color+i_, k);
+                let i2 = modulo(color+k-i_, k);
 
-                for j in 0..(if i_==0 || i_==kway/2 { 1 }  else {2}) {
-                    let i = if i_ == 0  {i1} else { if ((j+blk_id / i_)%2 == 0)  {i1} else {i2} } ;
-                    let partner = blk_size*i+new_pid;
-                    // println!("rank {:?} partner : {:?} colour {:?}", myrank, partner, blk_id);
-                    // println!("rank {:?} i : {:?}", myrank, send_size[i as usize]);
-                    let partner_process = comm.process_at_rank(partner);
+                for j in 0..(if i_==0 || i_==k/2 { 1 }  else {2}) {
+                    let i = if i_ == 0  {i1} else { if ((j+color / i_)%2 == 0)  {i1} else {i2} } ;
+                    let partner_rank = color_size*i+new_rank;
+                    let partner_process = comm.process_at_rank(partner_rank);
                     mpi::point_to_point::send_receive_into(
                         &send_size[i as usize],
                         &partner_process,
@@ -114,28 +88,21 @@ pub fn all_to_all_kwayv(
                     recv_iter += 1;
                 }
             }
-            // println!("RANK {:?} recv_cnt {:?} recv_disp {:?}", myrank, recv_cnt, recv_disp);
-            // break;
 
             // Communicate data
-            let asynch_count = 2;
             recv_iter = 0;
 
             // Resize buffers
-            arr_.resize(recv_disp[kway as usize] as usize, 0);
-            // arr__.resize(recv_disp[kway as usize] as usize, 0);
+            arr_.resize(recv_disp[k as usize] as usize, 0);
 
-            for i_ in 0..=(kway/2) {
-                let i1 = modulo(blk_id+i_, kway);
-                let i2 = modulo(blk_id+kway-i_, kway);
+            for i_ in 0..=(k/2) {
+                let i1 = modulo(color+i_, k);
+                let i2 = modulo(color+k-i_, k);
 
-
-                for j in 0..(if i_==0 || i_==kway/2 { 1 }  else {2}) {
-                    let i = if i_ == 0  {i1} else { if ((j+blk_id / i_)%2 == 0)  {i1} else {i2} } ;
-                    let partner = blk_size*i+new_pid;
-                    let partner_process = comm.process_at_rank(partner);
-
-                    // println!("rank {:?} receices from {:?} and sends to {:?}", myrank, partner, partner);
+                for j in 0..(if i_==0 || i_==k/2 { 1 }  else {2}) {
+                    let i = if i_ == 0  {i1} else { if ((j+color / i_)%2 == 0)  {i1} else {i2} } ;
+                    let partner_rank = color_size*i+new_rank;
+                    let partner_process = comm.process_at_rank(partner_rank);
 
                     // Receive indices
                     let r_lidx: usize = recv_disp[recv_iter as usize] as usize;
@@ -146,7 +113,6 @@ pub fn all_to_all_kwayv(
                     let s_ridx: usize = s_lidx + send_size[i as usize] as usize;
 
                     mpi::request::scope(|scope| {
-                            // let mut sreq = partner_process.immediate_synchronous_send(scope, &arr[s_lidx..s_ridx]);
                             let mut sreq = partner_process.immediate_synchronous_send(scope, &arr[..]);
                             let rreq = partner_process.immediate_receive_into(scope, &mut arr_[r_lidx..r_ridx]);
                             rreq.wait();
@@ -169,13 +135,12 @@ pub fn all_to_all_kwayv(
 
             // Handle communicator
             {
-                comm = comm.split_by_color(mpi::topology::Color::with_value(blk_id)).unwrap();
-                npes = comm.size();
-                myrank = comm.rank();
+                comm = comm.split_by_color(mpi::topology::Color::with_value(color)).unwrap();
+                p = comm.size();
+                rank = comm.rank();
 
             }
-
-         }
+        }
     }
 }
 
