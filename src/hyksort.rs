@@ -1,8 +1,11 @@
+use std::convert::TryInto;
+
 use mpi::traits::*;
 use mpi::topology::{UserCommunicator, SystemCommunicator};
 use mpi::collective::{SystemOperation};
 use mpi::datatype::{Partition, PartitionMut};
 use mpi::{Count, Address};
+use mpi::topology::{Rank, Process};
 
 
 pub fn modulo(a: i32, b: i32) -> i32 {
@@ -10,21 +13,21 @@ pub fn modulo(a: i32, b: i32) -> i32 {
 }
 
 pub fn all_to_all_kwayv(
-    arr: &mut Vec<i32>,
-    mut k: i32,
+    arr: &mut Vec<u64>,
+    mut k: Rank,
     mut comm: UserCommunicator
 ) {
 
-    let mut p = comm.size();
-    let mut rank = comm.rank();
+    let mut p: Rank = comm.size();
+    let mut rank: Rank = comm.rank();
 
-    let mut problem_size: i32 = 0;
-    let mut arr_len: i32 = arr.len() as i32;
+    let mut problem_size: u64 = 0;
+    let mut arr_len: u64 = arr.len().try_into().unwrap();
 
     comm.all_reduce_into(&arr_len, &mut problem_size, SystemOperation::sum());
 
     // Allocate all buffers
-    let mut arr_ = vec![0; (arr_len*2) as usize];
+    let mut arr_: Vec<u64> = vec![0; (arr_len*2) as usize];
 
     while (p > 1 && problem_size>0) {
 
@@ -42,26 +45,26 @@ pub fn all_to_all_kwayv(
         // Communicate
         {
             // Determine send size
-            let mut send_size: Vec<i32> = vec![0; k as usize];
-            let mut send_disp: Vec<i32> = vec![0; (k+1) as usize];
-            let msg_size = arr.len() as i32;
+            let mut send_size: Vec<u64> = vec![0; k as usize];
+            let mut send_disp: Vec<u64> = vec![0; (k+1) as usize];
+            let msg_size: u64 = arr.len() as u64;
             // Send whole message every time (no bucketing)
             send_disp[0] = 0;
-            send_disp[k as usize] = msg_size*k;
+            send_disp[k as usize] = msg_size*(k as u64);
 
             for i in 0..k {
                 send_size[i as usize] = msg_size;
             }
 
             for i in 0..k {
-                send_disp[i as usize] = i*msg_size;
+                send_disp[i as usize] = (i as u64)*msg_size;
             }
 
             // Determine receive sizes
-            let mut recv_iter: i32 = 0;
-            let mut recv_cnt: Vec<i32> = vec![0; k as usize];
-            let mut recv_size: Vec<i32> = vec![0; k as usize];
-            let mut recv_disp: Vec<i32> = vec![0; (k+1) as usize];
+            let mut recv_iter: u64 = 0;
+            let mut recv_cnt: Vec<u64> = vec![0; k as usize];
+            let mut recv_size: Vec<u64> = vec![0; k as usize];
+            let mut recv_disp: Vec<u64> = vec![0; (k+1) as usize];
 
             for i_ in 0..=(k/2) {
                 let i1 = modulo(color+i_, k);
@@ -123,7 +126,6 @@ pub fn all_to_all_kwayv(
                     recv_iter += 1;
                 }
             }
-
             // Swap buffers
             std::mem::swap(arr, &mut arr_);
 
