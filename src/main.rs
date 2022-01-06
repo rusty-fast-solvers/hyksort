@@ -2,7 +2,7 @@ use std::time::Instant;
 use std::collections::HashMap;
 
 use mpi::traits::*;
-use mpi::topology::{Color};
+use mpi::topology::{Color, Rank};
 
 use hyksort::hyksort::{all_to_all_kwayv, all_to_all};
 
@@ -14,13 +14,13 @@ fn main() {
     let world = universe.world();
     let world = world.split_by_color(Color::with_value(0)).unwrap();
     let size = world.size();
-    let rank = world.rank();
+    let rank: Rank = world.rank();
     let k = 128;
 
-    let nparticles = 1e8;
-    let mut arr = vec![rank; nparticles as usize];
+    let nparticles = 1e3;
+    let mut arr = vec![rank as u64; (rank+1) as usize];
 
-    let mut buckets: Vec<Vec<i32>> = vec![Vec::new(); (size-1) as usize];
+    let mut buckets: Vec<Vec<u64>> = vec![Vec::new(); (size-1) as usize];
 
     for i in 0..(size-1) {
         for elem in &arr {
@@ -47,6 +47,6 @@ fn main() {
             times.get(&"kway".to_string()).unwrap(),
             times.get(&"intrinsic".to_string()).unwrap()
         );
-        // assert_eq!(arr.len(), b.len());
+        assert_eq!(arr.len(), b.len());
     }
 }
