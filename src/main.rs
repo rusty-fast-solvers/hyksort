@@ -17,8 +17,8 @@ fn main() {
     let rank: Rank = world.rank();
     let k = 128;
 
-    let nparticles = 1e3;
-    let mut arr = vec![rank as u64; (rank+1) as usize];
+    let nparticles = 1e8;
+    let mut arr = vec![rank as u64; nparticles as usize];
 
     let mut buckets: Vec<Vec<u64>> = vec![Vec::new(); (size-1) as usize];
 
@@ -36,7 +36,7 @@ fn main() {
 
     let world = universe.world();
     let intrinsic = Instant::now();
-    let mut b = all_to_all(world, size, buckets);
+    // let mut b = all_to_all(world, size, buckets);
     times.insert("intrinsic".to_string(), intrinsic.elapsed().as_millis());
 
     if rank == 0 {
@@ -47,6 +47,6 @@ fn main() {
             times.get(&"kway".to_string()).unwrap(),
             times.get(&"intrinsic".to_string()).unwrap()
         );
-        assert_eq!(arr.len(), b.len());
+        // assert_eq!(arr.len(), b.len());
     }
 }
