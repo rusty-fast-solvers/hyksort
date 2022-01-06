@@ -3,11 +3,11 @@
 #SBATCH --partition=standard
 #SBATCH --qos=standard
 #SBATCH --account=e681
-#SBATCH --hint=nomultithread
 #SBATCH --distribution=block:block
 #SBATCH --time=00:30:00
 #SBATCH --nodes=1
 #SBATCH --ntasks-per-node 64
+#SBATCH --cpus-per-task=1
 
 # Restore AMD compiler env
 # module restore PrgEnv-aocc
@@ -30,4 +30,4 @@ touch ${OUTPUT}
 echo "n_processes,kway,intrinsic" >> ${OUTPUT}
 
 # Run jobs
-srun --n $SLURM_NTASKS --hint=nomultithread ${TEST}/hyksort >> ${OUTPUT}
+srun -n $SLURM_NTASKS --hint=nomultithread ${TEST}/hyksort >> ${OUTPUT}

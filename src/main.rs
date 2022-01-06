@@ -10,15 +10,14 @@ pub type Times = HashMap<String, u128>;
 
 
 fn main() {
-
     let universe = mpi::initialize().unwrap();
     let world = universe.world();
     let world = world.split_by_color(Color::with_value(0)).unwrap();
     let size = world.size();
     let rank = world.rank();
-    let k = 2;
+    let k = 128;
 
-    let nparticles = 1e5;
+    let nparticles = 1e8;
     let mut arr = vec![rank; nparticles as usize];
 
     let mut buckets: Vec<Vec<i32>> = vec![Vec::new(); (size-1) as usize];
@@ -48,11 +47,6 @@ fn main() {
             times.get(&"kway".to_string()).unwrap(),
             times.get(&"intrinsic".to_string()).unwrap()
         );
-        assert_eq!(arr.len(), b.len());
-        arr.sort();
-        b.sort();
-        assert_eq!(arr, b);
-
-        // println!("a {:?} b {:?}", arr, b);
+        // assert_eq!(arr.len(), b.len());
     }
 }
