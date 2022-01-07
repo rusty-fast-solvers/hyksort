@@ -4,7 +4,7 @@ use std::collections::HashMap;
 use mpi::traits::*;
 use mpi::topology::{Color, Rank};
 
-use hyksort::hyksort::{all_to_all_kwayv, all_to_all};
+use hyksort::hyksort::{all_to_all_kwayv, all_to_all, select_splitters};
 
 pub type Times = HashMap<String, u128>;
 
@@ -17,7 +17,7 @@ fn main() {
     let rank: Rank = world.rank();
     let k = 128;
 
-    let nparticles = 1e8;
+    let nparticles = 10;
     let mut arr = vec![rank as u64; nparticles as usize];
 
     let mut buckets: Vec<Vec<u64>> = vec![Vec::new(); (size-1) as usize];
@@ -28,25 +28,32 @@ fn main() {
         }
     }
 
-    let mut times: Times = HashMap::new();
+    // Find splitters
+    let splitters = select_splitters(&mut arr, k, world);
 
+    let mut times: Times = HashMap::new();
+    let world = universe.world();
+    let world = world.split_by_color(Color::with_value(0)).unwrap();
+
+    // Hyksort communication pattern
     let kwayt = Instant::now();
-    all_to_all_kwayv(&mut arr, k, world);
+    all_to_all_kwayv(&mut arr, k, &splitters, world);
     times.insert("kway".to_string(), kwayt.elapsed().as_millis());
 
-    let world = universe.world();
-    let intrinsic = Instant::now();
-    // let mut b = all_to_all(world, size, buckets);
-    times.insert("intrinsic".to_string(), intrinsic.elapsed().as_millis());
+    // let world = universe.world();
+    // let intrinsic = Instant::now();
+    // // let mut b = all_to_all(world, size, buckets);
+    // times.insert("intrinsic".to_string(), intrinsic.elapsed().as_millis());
 
-    if rank == 0 {
-        println!(
-            "{:?} {:?}, {:?}, {:?}",
-            size,
-            nparticles,
-            times.get(&"kway".to_string()).unwrap(),
-            times.get(&"intrinsic".to_string()).unwrap()
-        );
-        // assert_eq!(arr.len(), b.len());
-    }
+
+    // if rank == 0 {
+    //     println!(
+    //         "{:?} {:?}, {:?}, {:?}",
+    //         size,
+    //         nparticles,
+    //         times.get(&"kway".to_string()).unwrap(),
+    //         times.get(&"intrinsic".to_string()).unwrap()
+    //     );
+    //     // assert_eq!(arr.len(), b.len());
+    // }
 }
