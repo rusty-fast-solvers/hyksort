@@ -1,5 +1,7 @@
 use std::convert::TryInto;
 
+use rand::{thread_rng, Rng};
+
 use mpi::traits::*;
 use mpi::topology::{UserCommunicator, SystemCommunicator};
 use mpi::collective::{SystemOperation};
@@ -12,10 +14,59 @@ pub fn modulo(a: i32, b: i32) -> i32 {
     ((a % b) + b) % b
 }
 
-pub fn all_to_all_kwayv(
+pub fn select_splitters(
     arr: &mut Vec<u64>,
     mut k: Rank,
     mut comm: UserCommunicator
+ ) -> Vec<u64> {
+    let mut rank: Rank = comm.rank();
+    let mut size: Rank = comm.size();
+
+    if k > size {
+        k = size;
+    }
+
+    let arr_len: u64 = arr.len().try_into().unwrap();
+    let mut problem_size: u64 = 0;
+
+    // Find total problem size
+    comm.all_reduce_into(&arr_len, &mut problem_size, SystemOperation::sum());
+
+    // 1. Collect samples from each process onto all other processes
+    let n_samples: usize = 10;
+
+    let mut rng = thread_rng();
+    let sample_idxs: Vec<usize> = (0..n_samples)
+        .map(|_| rng.gen_range(0..arr_len as usize))
+        .collect();
+
+    let mut local_samples: Vec<u64> = vec![0 as u64; n_samples];
+    let mut received_samples: Vec<u64> = vec![0; n_samples * (size as usize)];
+
+    for (i, &sample_idx) in sample_idxs.iter().enumerate() {
+        local_samples[i] = arr[sample_idx].clone();
+    }
+
+    comm.all_gather_into(&local_samples[..], &mut received_samples[..]);
+
+    // We want 'k' splitters to define k+1 buckets
+    // let total_samples: u64 = n_samples*size;
+    let n_buckets: usize = ((n_samples) * (size as usize)) / (k as usize);
+
+    received_samples.sort();
+    // println!("ALL RECEIVED {:?}", n_buckets);
+
+    let splitters = received_samples.iter().step_by(n_buckets).cloned().collect();
+
+    splitters
+}
+
+
+pub fn all_to_all_kwayv(
+    arr: &mut Vec<u64>,
+    mut k: Rank,
+    splitters: &Vec<u64>,
+    mut comm: UserCommunicator,
 ) {
 
     let mut p: Rank = comm.size();
@@ -48,6 +99,7 @@ pub fn all_to_all_kwayv(
             let mut send_size: Vec<u64> = vec![0; k as usize];
             let mut send_disp: Vec<u64> = vec![0; (k+1) as usize];
             let msg_size: u64 = arr.len() as u64;
+
             // Send whole message every time (no bucketing)
             send_disp[0] = 0;
             send_disp[k as usize] = msg_size*(k as u64);
