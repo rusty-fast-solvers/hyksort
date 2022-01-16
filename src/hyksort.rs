@@ -281,6 +281,9 @@ pub fn all_to_all_kwayv(
             // Swap buffers
             std::mem::swap(arr, &mut arr_);
 
+            // Local sort after merge
+            arr.sort();
+
             // Handle communicator
             {
                 comm = comm.split_by_color(mpi::topology::Color::with_value(color)).unwrap();

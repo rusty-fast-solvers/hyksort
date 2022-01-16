@@ -16,7 +16,7 @@ fn main() {
     let size = world.size();
     let rank: Rank = world.rank();
     let k = 128;
-    let k = 4;
+    let k = 2;
 
     let nparticles = 10;
     let mut arr = vec![rank as u64; nparticles as usize];
