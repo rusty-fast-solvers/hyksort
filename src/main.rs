@@ -4,7 +4,7 @@ use std::collections::HashMap;
 use mpi::traits::*;
 use mpi::topology::{Color, Rank};
 
-use hyksort::hyksort::{all_to_all_kwayv, all_to_all, select_splitters};
+use hyksort::hyksort::{all_to_all_kwayv, parallel_select};
 
 pub type Times = HashMap<String, u128>;
 
@@ -16,10 +16,14 @@ fn main() {
     let size = world.size();
     let rank: Rank = world.rank();
     let k = 128;
+    let k = 4;
 
     let nparticles = 10;
     let mut arr = vec![rank as u64; nparticles as usize];
 
+    let mut arr: Vec<u64> = vec![0, 3, 1, 2, 0, 3, 1, 2];
+    arr.sort();
+    // println!("arr {:?}", arr);
     let mut buckets: Vec<Vec<u64>> = vec![Vec::new(); (size-1) as usize];
 
     for i in 0..(size-1) {
@@ -28,18 +32,21 @@ fn main() {
         }
     }
 
-    // Find splitters
-    let splitters = select_splitters(&mut arr, k, world);
-
     let mut times: Times = HashMap::new();
     let world = universe.world();
     let world = world.split_by_color(Color::with_value(0)).unwrap();
 
+    // let split_keys = parallel_select(&mut arr, &(k-1), &world);
+
+    // println!("rank {:?} split keys {:?}", rank, split_keys);
+
+
     // Hyksort communication pattern
     let kwayt = Instant::now();
-    all_to_all_kwayv(&mut arr, k, &splitters, world);
+    let res = all_to_all_kwayv(&mut arr, k, world);
     times.insert("kway".to_string(), kwayt.elapsed().as_millis());
 
+    println!("rank {:?} res {:?}", rank, arr);
     // let world = universe.world();
     // let intrinsic = Instant::now();
     // // let mut b = all_to_all(world, size, buckets);
