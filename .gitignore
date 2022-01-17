@@ -1,3 +1,4 @@
 /target
 # Jupyter notebook
 *.ipynb linguist-documentation
+*/*.ipynb linguist-documentation
