@@ -1,4 +1,3 @@
 /target
-# Jupyter notebook
-*.ipynb linguist-documentation
-*/*.ipynb linguist-documentation
+# Jupyter Notebook
+.ipynb_checkpoints
