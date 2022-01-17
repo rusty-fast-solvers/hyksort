@@ -8,3 +8,4 @@ edition = "2018"
 [dependencies]
 mpi = { git = "https://github.com/skailasa/rsmpi", branch = "master"}
 rand = "0.8.4"
+superslice = "1"
