@@ -1,1 +1,3 @@
 /target
+# Jupyter notebook
+*.ipynb linguist-documentation
