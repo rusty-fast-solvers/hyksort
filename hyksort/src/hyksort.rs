@@ -21,11 +21,14 @@ pub fn modulo(a: i32, b: i32) -> i32 {
 
 /// Parallel selection algorithm to determine 'k' splitters from the global array currently being
 /// considered in the communicator.
-pub fn parallel_select(
-    arr: &Vec<u64>,
+pub fn parallel_select<T>(
+    arr: &Vec<T>,
     &k: &Rank,
     mut comm: &UserCommunicator,
-) -> Vec<u64> {
+) -> Vec<T>
+where
+    T: Default+Clone+Copy+Equivalence+Ord
+{
 
     let mut p: Rank = comm.size();
     let mut rank: Rank = comm.rank();
@@ -44,7 +47,7 @@ pub fn parallel_select(
     let mut rng = rand::thread_rng();
 
     // Randomly sample splitters from local section of array
-    let mut splitters: Vec<u64> = vec![0; split_count as usize];
+    let mut splitters: Vec<T> = vec![T::default(); split_count as usize];
 
     for i in 0..split_count {
         let mut idx: u64 = rng.gen::<u64>();
@@ -70,7 +73,7 @@ pub fn parallel_select(
 
     global_split_count = global_split_displacements[(p-1) as usize] + global_split_counts[(p-1) as usize];
 
-    let mut global_splitters: Vec<u64> = vec![0; global_split_count as usize];
+    let mut global_splitters: Vec<T> = vec![T::default(); global_split_count as usize];
     {
         let mut partition = PartitionMut::new(
             &mut global_splitters[..],
@@ -103,7 +106,7 @@ pub fn parallel_select(
 
     // We're performing a k-way split, find the keys associated with a split by comparing the
     // optimal splitters with the sampled ones
-    let mut split_keys: Vec<u64> = vec![0; k as usize];
+    let mut split_keys: Vec<T> = vec![T::default(); k as usize];
 
     for i in 0..k {
         let mut _disp = 0;
@@ -127,11 +130,14 @@ pub fn parallel_select(
 
 
 /// HykSort of Sundar et. al. without the parallel merge logic.
-pub fn hyksort(
-    arr: &mut Vec<u64>,
+pub fn hyksort<T>(
+    arr: &mut Vec<T>,
     mut k: Rank,
     mut comm: &mut UserCommunicator,
-) {
+)
+where
+    T: Default+Clone+Copy+Equivalence+Ord
+{
 
     let mut p: Rank = comm.size();
     let mut rank: Rank = comm.rank();
@@ -143,7 +149,7 @@ pub fn hyksort(
     comm.all_reduce_into(&arr_len, &mut problem_size, SystemOperation::sum());
 
     // Allocate all buffers
-    let mut arr_: Vec<u64> = vec![0; (arr_len*2) as usize];
+    let mut arr_: Vec<T> = vec![T::default(); (arr_len*2) as usize];
 
     // Perform local sort
     arr.sort();
@@ -163,7 +169,7 @@ pub fn hyksort(
         let new_rank = modulo(rank, color_size);
 
         // Find (k-1) splitters to define a k-way split
-        let split_keys: Vec<u64> = parallel_select(&arr, &(k-1), comm);
+        let split_keys: Vec<T> = parallel_select(&arr, &(k-1), comm);
 
         // Communicate
         {
@@ -215,7 +221,7 @@ pub fn hyksort(
             // Communicate packets
 
             // Resize buffers
-            arr_.resize(recv_disp[k as usize] as usize, 0);
+            arr_.resize(recv_disp[k as usize] as usize, T::default());
 
             // Reset recv_iter
             recv_iter = 0;
