@@ -29,7 +29,6 @@ pub fn parallel_select<T>(
 where
     T: Default+Clone+Copy+Equivalence+Ord
 {
-
     let mut p: Rank = comm.size();
     let mut rank: Rank = comm.rank();
 
@@ -138,7 +137,6 @@ pub fn hyksort<T>(
 where
     T: Default+Clone+Copy+Equivalence+Ord
 {
-
     let mut p: Rank = comm.size();
     let mut rank: Rank = comm.rank();
 
@@ -276,7 +274,6 @@ where
                 *comm = comm.split_by_color(mpi::topology::Color::with_value(color)).unwrap();
                 p = comm.size();
                 rank = comm.rank();
-
             }
         }
     }
