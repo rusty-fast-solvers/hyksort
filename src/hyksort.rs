@@ -38,8 +38,9 @@ pub fn parallel_select(
     comm.all_reduce_into(&arr.len(), &mut problem_size, SystemOperation::sum());
 
     // Determine number of samples for splitters, beta=20 taken from paper
-    let beta = 20;
-    let mut split_count: Count = (beta*k*(arr_len as Count))/(problem_size as Count);
+    // let beta = 20;
+    // let mut split_count: Count = (beta*k*(arr_len as Count))/(problem_size as Count);
+    let split_count = 10;
     let mut rng = rand::thread_rng();
 
     // Randomly sample splitters from local section of array
@@ -120,6 +121,7 @@ pub fn parallel_select(
         split_keys[i as usize] = global_splitters[_disp as usize]
     }
 
+    split_keys.sort();
     split_keys
 }
 
@@ -172,7 +174,7 @@ pub fn hyksort(
             // Packet displacement and size to each partner process determined by the splitters found
             send_disp[k as usize] = arr.len() as u64;
             for i in 1..k {
-                send_disp[i as usize] = arr.partition_point(|&x| x < split_keys[(i-1) as usize]) as u64;
+                send_disp[i as usize] = arr.lower_bound(&split_keys[(i-1) as usize]) as u64;
             }
 
             for i in 0..k {
@@ -230,10 +232,12 @@ pub fn hyksort(
                     // Receive packet bounds indices
                     let r_lidx: usize = recv_disp[recv_iter as usize] as usize;
                     let r_ridx: usize = r_lidx + recv_size[recv_iter as usize] as usize;
+                    assert!(r_lidx <= r_ridx);
 
                     // Send packet bounds indices
                     let s_lidx: usize = send_disp[i as usize] as usize;
                     let s_ridx: usize = s_lidx + send_size[i as usize] as usize;
+                    assert!(s_lidx <= s_ridx);
 
                     mpi::request::scope(|scope| {
                             let mut sreq = partner_process.immediate_synchronous_send(scope, &arr[s_lidx..s_ridx]);

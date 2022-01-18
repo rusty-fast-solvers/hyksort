@@ -21,9 +21,9 @@ fn main() {
     let k = 128;
 
     // Sample nparticles randomly in range [min, max)
-    let nparticles: u64 = 1000;
+    let nparticles: u64 = 100000000;
     let min = 0;
-    let max = 1000000;
+    let max = 10000000000;
     let range = Uniform::from(min..max);
     let mut arr: Vec<u64> = rand::thread_rng()
         .sample_iter(&range)
@@ -42,27 +42,13 @@ fn main() {
         rank, arr.len(), arr.iter().min(), arr.iter().max()
     );
 
-    let mut experiment_size: u64 = 0;
-    let world = universe.world();
-
-    // Communicate size of result to master process.
-    if rank == 0 {
-        world
-            .process_at_rank(0)
-            .reduce_into_root(&nparticles, &mut experiment_size, SystemOperation::sum());
-    } else {
-        world
-            .process_at_rank(0)
-            .reduce_into(&nparticles, SystemOperation::sum());
-    }
-
     if rank == 0 {
 
-        println!("Ranks, Total Particles, Time (ms)");
+        // println!("Ranks, Total Particles, Time (ms)");
         println!(
             "{:?}, {:?}, {:?}",
             size,
-            experiment_size,
+            nparticles,
             times.get(&"kway".to_string()).unwrap(),
         );
 
