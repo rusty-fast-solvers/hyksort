@@ -43,8 +43,6 @@ fn main() {
     );
 
     if rank == 0 {
-
-        // println!("Ranks, Total Particles, Time (ms)");
         println!(
             "{:?}, {:?}, {:?}",
             size,
