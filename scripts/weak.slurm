@@ -28,7 +28,7 @@ export TEST=${WORK}/alltoall/
 # Create a CSV output file for analysis
 export OUTPUT=${SLURM_JOBID}_${SLURM_JOB_NUM_NODES}_${SLURM_TASKS_PER_NODE}.csv
 touch ${OUTPUT}
-echo "n_processes,nparticles_per_core,kway,intrinsic" >> ${OUTPUT}
+echo "ranks,nparticles_per_rank,time" >> ${OUTPUT}
 
 # Run jobs
 srun -n $SLURM_NTASKS --hint=nomultithread ${TEST}/hyksort >> ${OUTPUT}

@@ -1,3 +1,4 @@
+/// Simple script to test weak scaling of Hyksort algorithm
 use std::time::Instant;
 use std::collections::HashMap;
 
@@ -9,7 +10,7 @@ use hyksort::hyksort::{hyksort, parallel_select};
 
 pub type Times = HashMap<String, u128>;
 
-use rand::{distributions::Uniform, Rng}; // 0.8.0
+use rand::{distributions::Uniform, Rng};
 
 
 fn main() {
