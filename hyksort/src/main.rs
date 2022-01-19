@@ -1,17 +1,16 @@
+use std::collections::HashMap;
 /// Simple script to test weak scaling of Hyksort algorithm
 use std::time::Instant;
-use std::collections::HashMap;
 
-use mpi::traits::*;
+use mpi::collective::SystemOperation;
 use mpi::topology::{Color, Rank};
-use mpi::collective::{SystemOperation};
+use mpi::traits::*;
 
 use hyksort::hyksort::{hyksort, parallel_select};
 
 pub type Times = HashMap<String, u128>;
 
 use rand::{distributions::Uniform, Rng};
-
 
 fn main() {
     let universe = mpi::initialize().unwrap();
@@ -40,7 +39,10 @@ fn main() {
 
     println!(
         "rank {:?} nparticles {:?} min {:?} max {:?}",
-        rank, arr.len(), arr.iter().min(), arr.iter().max()
+        rank,
+        arr.len(),
+        arr.iter().min(),
+        arr.iter().max()
     );
 
     if rank == 0 {
@@ -50,7 +52,5 @@ fn main() {
             nparticles,
             times.get(&"kway".to_string()).unwrap(),
         );
-
-
     }
 }
