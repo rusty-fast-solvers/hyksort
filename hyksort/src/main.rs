@@ -18,7 +18,7 @@ fn main() {
     let mut world = world.split_by_color(Color::with_value(0)).unwrap();
     let size = world.size();
     let rank: Rank = world.rank();
-    let k = 128;
+    let k = 2;
 
     // Sample nparticles randomly in range [min, max)
     let nparticles: u64 = 100000000;

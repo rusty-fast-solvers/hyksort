@@ -1,14 +1,13 @@
-extern crate mpi;
 extern crate hyksort;
+extern crate mpi;
 
 use mpi::environment::Universe;
-use mpi::traits::*;
 use mpi::topology::{Color, Rank};
+use mpi::traits::*;
 
 use rand::{distributions::Uniform, Rng};
 
 use hyksort::hyksort::{hyksort, parallel_select};
-
 
 pub fn test_hyksort(universe: &Universe) {
     let world = universe.world();
@@ -16,6 +15,7 @@ pub fn test_hyksort(universe: &Universe) {
     let size = world.size();
     let rank: Rank = world.rank();
     let k = 128;
+    let k = 4;
 
     // Sample nparticles randomly in range [min, max)
     let nparticles: u64 = 1000;
@@ -39,7 +39,6 @@ pub fn test_hyksort(universe: &Universe) {
     if rank > 0 {
         let min: u64 = arr.iter().min().unwrap().clone();
         prev_process.send(&min);
-
     }
 
     if rank < (size - 1) {
@@ -47,7 +46,6 @@ pub fn test_hyksort(universe: &Universe) {
         let max: u64 = arr.iter().max().unwrap().clone();
         assert!(max <= rec[0], "{:?} {:?}", max, rec);
     }
-
 
     // Test that array is sorted on each process
     let mut prev = arr[0];
@@ -61,9 +59,7 @@ pub fn test_hyksort(universe: &Universe) {
     }
 }
 
-
 pub fn test_parallel_select(universe: &Universe) {
-
     let world = universe.world();
     let mut world = world.split_by_color(Color::with_value(0)).unwrap();
     let size = world.size();

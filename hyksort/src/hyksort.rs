@@ -141,11 +141,12 @@ where
     // Perform local sort
     arr.sort();
 
+    // If k is greater than size of communicator set to traditional dense all to all
+    if k > p {
+        k = p;
+    }
+
     while (p > 1 && problem_size > 0) {
-        // If k is greater than size of communicator set to traditional dense all to all
-        if k > p {
-            k = p;
-        }
 
         // Find size of color block
         let color_size = p / k;
@@ -196,21 +197,6 @@ where
                             i2
                         }
                     };
-
-                    if rank == 2 {
-                        if i_ != 0 {
-                            let factor = ((j + color / i_) % 2 == 0);
-                            println!(
-                                "i {:?} i_ {:?} i1 {:?} i2 {:?} color {:?} magic factor {:?}",
-                                i, i_, i1, i2, color, factor
-                            );
-                        } else {
-                            println!(
-                                "i {:?} i_ {:?} i1 {:?} i2 {:?} color {:?} magic factor {:?}",
-                                i, i_, i1, i2, color, true
-                            );
-                        }
-                    }
 
                     let partner_rank = color_size * i + new_rank;
                     let partner_process = comm.process_at_rank(partner_rank);

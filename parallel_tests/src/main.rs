@@ -2,7 +2,6 @@
 use mpi::traits::*;
 use parallel_tests::sorting::{test_hyksort, test_parallel_select};
 
-
 fn main() {
     let universe = mpi::initialize().unwrap();
     let world = universe.world();
