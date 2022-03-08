@@ -18,11 +18,19 @@ fn main() {
     let mut world = world.split_by_color(Color::with_value(0)).unwrap();
     let size = world.size();
     let rank: Rank = world.rank();
-    let k = std::env::var("KWAY").unwrap_or("2".to_string()).parse().unwrap();
+
+    // Set size of communication groups
+    let k = std::env::var("KWAY")
+        .unwrap_or("2".to_string())
+        .parse()
+        .unwrap();
 
     // Sample nparticles randomly in range [min, max)
-    let nparticles: u64 = 10000000;
-    // let nparticles: u64 = 1000;
+    let nparticles: u64 = std::env::var("NPARTICLES")
+        .unwrap_or("1000000".to_string())
+        .parse()
+        .unwrap();
+
     let min = 0;
     let max = 10000000000;
     let range = Uniform::from(min..max);
