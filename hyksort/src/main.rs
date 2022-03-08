@@ -1,5 +1,5 @@
+use std::env;
 use std::collections::HashMap;
-/// Simple script to test weak scaling of Hyksort algorithm
 use std::time::Instant;
 
 use mpi::collective::SystemOperation;
@@ -18,7 +18,7 @@ fn main() {
     let mut world = world.split_by_color(Color::with_value(0)).unwrap();
     let size = world.size();
     let rank: Rank = world.rank();
-    let k = 2;
+    let k = std::env::var("KWAY").unwrap_or("2".to_string()).parse().unwrap();
 
     // Sample nparticles randomly in range [min, max)
     let nparticles: u64 = 10000000;
@@ -31,15 +31,9 @@ fn main() {
         .take(nparticles as usize)
         .collect();
 
-//     // Store times in a dictionary
-    // let mut times: Times = HashMap::new();
-
     let kwayt = Instant::now();
     let profile = hyksort(&mut arr, k, &mut world);
     let wall_time = kwayt.elapsed().as_millis() as u64;
-    // times.insert("kway".to_string(), kwayt.elapsed().as_millis());
-
-    // println!("Rank {:?} \n Profile: {:?} \n Wall Time: {:?} \n", rank, profile, wall_time);
 
     let world = universe.world();
     let mut world = world.split_by_color(Color::with_value(0)).unwrap();
