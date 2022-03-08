@@ -1,5 +1,6 @@
 extern crate superslice;
 
+use std::time::{Instant};
 use std::convert::TryInto;
 
 use rand::Rng;
@@ -121,11 +122,32 @@ where
     split_keys
 }
 
+
+#[derive(Debug, Clone, Copy)]
+pub struct Profile {
+    pub total: u64,
+    pub local_sort: u64,
+    pub communication: u64,
+}
+
+impl Default for Profile {
+
+    fn default() -> Self {
+        Profile {
+            total: 0,
+            local_sort: 0,
+            communication: 0
+        }
+    }
+}
+
 /// HykSort of Sundar et. al. without the parallel merge logic.
-pub fn hyksort<T>(arr: &mut Vec<T>, mut k: Rank, mut comm: &mut UserCommunicator)
+pub fn hyksort<T>(arr: &mut Vec<T>, mut k: Rank, mut comm: &mut UserCommunicator) -> Profile
 where
     T: Default + Clone + Copy + Equivalence + Ord,
 {
+    let algorithm_start = Instant::now();
+    let mut profile = Profile::default();
     let mut p: Rank = comm.size();
     let mut rank: Rank = comm.rank();
 
@@ -138,8 +160,11 @@ where
     // Allocate all buffers
     let mut arr_: Vec<T> = vec![T::default(); (arr_len * 2) as usize];
 
+    let start = Instant::now();
     // Perform local sort
     arr.sort();
+    let end = Instant::now();
+    profile.local_sort += (end.saturating_duration_since(start).as_millis() as u64);
 
     // If k is greater than size of communicator set to traditional dense all to all
     if k > p {
@@ -159,6 +184,7 @@ where
         let split_keys: Vec<T> = parallel_select(&arr, &(k - 1), comm);
 
         // Communicate
+        let comm_start = Instant::now();
         {
             // Determine send size
             let mut send_size: Vec<u64> = vec![0; k as usize];
@@ -252,7 +278,7 @@ where
                     let s_ridx: usize = s_lidx + send_size[i as usize] as usize;
                     assert!(s_lidx <= s_ridx);
 
-                    mpi::request::scope(|scope| {
+                    let foo = mpi::request::scope(|scope| {
                         let mut sreq =
                             partner_process.immediate_synchronous_send(scope, &arr[s_lidx..s_ridx]);
                         let rreq = partner_process
@@ -271,15 +297,21 @@ where
                             }
                         }
                     });
+
                     recv_iter += 1;
                 }
             }
+            let comm_end = Instant::now();
+            profile.communication += comm_end.saturating_duration_since(comm_start).as_millis() as u64;
 
             // Swap send and receive buffers
             std::mem::swap(arr, &mut arr_);
 
             // Local sort of received data
+            let start = Instant::now();
             arr.sort();
+            let end = Instant::now();
+            profile.local_sort += end.saturating_duration_since(start).as_millis() as u64;
 
             // Split the communicator
             {
@@ -291,4 +323,8 @@ where
             }
         }
     }
+    let algorithm_end = Instant::now();
+    profile.total += algorithm_end.saturating_duration_since(algorithm_start).as_millis() as u64;
+
+    profile
 }

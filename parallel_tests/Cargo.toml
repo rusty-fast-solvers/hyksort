@@ -7,6 +7,6 @@ edition = "2018"
 
 [dependencies]
 hyksort = {path = "../hyksort"}
-mpi = { git = "https://github.com/skailasa/rsmpi", branch = "master"}
+mpi = { version = "0.5.4" }
 rand = "0.8.4"
 superslice = "1"

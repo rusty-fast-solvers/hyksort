@@ -21,7 +21,8 @@ fn main() {
     let k = 2;
 
     // Sample nparticles randomly in range [min, max)
-    let nparticles: u64 = 100000000;
+    let nparticles: u64 = 10000000;
+    // let nparticles: u64 = 1000;
     let min = 0;
     let max = 10000000000;
     let range = Uniform::from(min..max);
@@ -30,27 +31,64 @@ fn main() {
         .take(nparticles as usize)
         .collect();
 
-    // Store times in a dictionary
-    let mut times: Times = HashMap::new();
+//     // Store times in a dictionary
+    // let mut times: Times = HashMap::new();
 
     let kwayt = Instant::now();
-    hyksort(&mut arr, k, &mut world);
-    times.insert("kway".to_string(), kwayt.elapsed().as_millis());
+    let profile = hyksort(&mut arr, k, &mut world);
+    let wall_time = kwayt.elapsed().as_millis() as u64;
+    // times.insert("kway".to_string(), kwayt.elapsed().as_millis());
 
-    println!(
-        "rank {:?} nparticles {:?} min {:?} max {:?}",
-        rank,
-        arr.len(),
-        arr.iter().min(),
-        arr.iter().max()
-    );
+    // println!("Rank {:?} \n Profile: {:?} \n Wall Time: {:?} \n", rank, profile, wall_time);
 
+    let world = universe.world();
+    let mut world = world.split_by_color(Color::with_value(0)).unwrap();
+
+    // Times stored as milliseconds
     if rank == 0 {
-        println!(
-            "{:?}, {:?}, {:?}",
-            size,
-            nparticles,
-            times.get(&"kway".to_string()).unwrap(),
-        );
+        let mut total_wall_time: u64 = 0;
+        let mut total: u64 = 0;
+        let mut local_sort: u64 = 0;
+        let mut communication: u64 = 0;
+
+        world
+            .process_at_rank(0)
+            .reduce_into_root(&wall_time, &mut total_wall_time, SystemOperation::sum());
+
+        world
+            .process_at_rank(0)
+            .reduce_into_root(&profile.total, &mut total, SystemOperation::sum());
+
+        world
+            .process_at_rank(0)
+            .reduce_into_root(&profile.local_sort, &mut local_sort, SystemOperation::sum());
+
+        world
+            .process_at_rank(0)
+            .reduce_into_root(&profile.communication, &mut communication, SystemOperation::sum());
+
+            println!("K={:?}, nparticles={:?}", k, nparticles*(size as u64));
+            println!(" Mean Wall Time {:?} ms", (total_wall_time as f64)/(size as f64));
+            println!(" Mean CPU Time {:?} ms", (total as f64)/(size as f64));
+            println!(" Mean Local Sort Time {:?} ms", (local_sort as f64)/(size as f64));
+            println!(" Mean Communcation Time {:?} ms", (communication as f64)/(size as f64));
+    } else {
+
+        world
+            .process_at_rank(0)
+            .reduce_into(&wall_time, SystemOperation::sum());
+
+            world
+            .process_at_rank(0)
+            .reduce_into(&profile.total, SystemOperation::sum());
+
+        world
+            .process_at_rank(0)
+            .reduce_into(&profile.local_sort, SystemOperation::sum());
+
+        world
+            .process_at_rank(0)
+            .reduce_into(&profile.communication, SystemOperation::sum());
     }
+
 }
