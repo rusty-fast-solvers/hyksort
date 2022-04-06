@@ -10,7 +10,7 @@ use rand::{distributions::Uniform, Rng};
 use hyksort::hyksort::{hyksort, parallel_select};
 
 pub fn test_hyksort(universe: &Universe) {
-    let world = universe.world();
+    let world = universe.world().duplicate();
     let size = world.size();
     let rank: Rank = world.rank();
     let k = 4;

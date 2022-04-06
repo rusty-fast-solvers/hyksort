@@ -20,7 +20,7 @@ pub fn modulo(a: i32, b: i32) -> i32 {
 
 /// Parallel selection algorithm to determine 'k' splitters from the global array currently being
 /// considered in the communicator.
-pub fn parallel_select<T>(arr: &Vec<T>, &k: &Rank, world: &SystemCommunicator) -> Vec<T>
+pub fn parallel_select<T>(arr: &Vec<T>, &k: &Rank, world: &UserCommunicator) -> Vec<T>
 where
     T: Default + Clone + Copy + Equivalence + Ord,
 {
@@ -119,7 +119,7 @@ where
 }
 
 /// HykSort of Sundar et. al. without the parallel merge logic.
-pub fn hyksort<T>(arr: &mut Vec<T>, mut k: Rank, world: &SystemCommunicator)
+pub fn hyksort<T>(arr: &mut Vec<T>, mut k: Rank, world: &UserCommunicator)
 where
     T: Default + Clone + Copy + Equivalence + Ord,
 {
