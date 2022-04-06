@@ -20,19 +20,18 @@ pub fn modulo(a: i32, b: i32) -> i32 {
 
 /// Parallel selection algorithm to determine 'k' splitters from the global array currently being
 /// considered in the communicator.
-pub fn parallel_select<T>(arr: &Vec<T>, &k: &Rank, mut comm: &UserCommunicator) -> Vec<T>
+pub fn parallel_select<T>(arr: &Vec<T>, &k: &Rank, world: &SystemCommunicator) -> Vec<T>
 where
     T: Default + Clone + Copy + Equivalence + Ord,
 {
-    let mut p: Rank = comm.size();
-    let mut rank: Rank = comm.rank();
+    let p: Rank = world.size();
 
     // Store problem size in u64 to handle very large arrays
     let mut problem_size: u64 = 0;
-    let mut arr_len: u64 = arr.len().try_into().unwrap();
+    let arr_len: u64 = arr.len().try_into().unwrap();
 
     // Communicate the total problem size to each process in communicator
-    comm.all_reduce_into(&arr.len(), &mut problem_size, SystemOperation::sum());
+    world.all_reduce_into(&arr.len(), &mut problem_size, SystemOperation::sum());
 
     // Determine number of samples for splitters, beta=20 taken from paper
     // let beta = 20;
@@ -50,12 +49,11 @@ where
     }
 
     // Gather sampled splitters from all processes at each process
-    let mut global_split_count: Count = 0;
     let mut global_split_counts: Vec<Count> = vec![0; p as usize];
 
-    comm.all_gather_into(&split_count, &mut global_split_counts[..]);
+    world.all_gather_into(&split_count, &mut global_split_counts[..]);
 
-    let mut global_split_displacements: Vec<Count> = global_split_counts
+    let  global_split_displacements: Vec<Count> = global_split_counts
         .iter()
         .scan(0, |acc, &x| {
             let tmp = *acc;
@@ -64,8 +62,7 @@ where
         })
         .collect();
 
-    global_split_count =
-        global_split_displacements[(p - 1) as usize] + global_split_counts[(p - 1) as usize];
+    let global_split_count = global_split_displacements[(p - 1) as usize] + global_split_counts[(p - 1) as usize];
 
     let mut global_splitters: Vec<T> = vec![T::default(); global_split_count as usize];
     {
@@ -74,24 +71,24 @@ where
             global_split_counts,
             &global_split_displacements[..],
         );
-        comm.all_gather_varcount_into(&splitters[..], &mut partition)
+        world.all_gather_varcount_into(&splitters[..], &mut partition)
     }
 
     // Sort the sampled splitters
     global_splitters.sort();
 
     // Find associated rank due to splitters locally, arr is assumed to be sorted locally
-    let mut disp: Vec<u64> = vec![0; (global_split_count as usize)];
+    let mut disp: Vec<u64> = vec![0; global_split_count as usize];
 
     for i in 0..global_split_count {
         disp[i as usize] = arr.lower_bound(&global_splitters[i as usize]) as u64;
     }
 
     // The global rank is found via a simple sum
-    let mut global_disp = vec![0; (global_split_count as usize)];
+    let mut global_disp = vec![0; global_split_count as usize];
 
     for i in 0..global_split_count {
-        comm.all_reduce_into(
+        world.all_reduce_into(
             &disp[i as usize],
             &mut global_disp[i as usize],
             SystemOperation::sum(),
@@ -107,8 +104,8 @@ where
         let optimal_splitter: u64 = ((i + 1) as u64) * problem_size / (k as u64 + 1);
 
         for j in 0..global_split_count {
-            if ((global_disp[j as usize] - optimal_splitter as i32).abs()
-                < (global_disp[_disp as usize] - optimal_splitter as i32).abs())
+            if (global_disp[j as usize] - optimal_splitter as i32).abs()
+                < (global_disp[_disp as usize] - optimal_splitter as i32).abs()
             {
                 _disp = j;
             }
@@ -122,18 +119,18 @@ where
 }
 
 /// HykSort of Sundar et. al. without the parallel merge logic.
-pub fn hyksort<T>(arr: &mut Vec<T>, mut k: Rank, mut comm: &mut UserCommunicator)
+pub fn hyksort<T>(arr: &mut Vec<T>, mut k: Rank, world: &SystemCommunicator)
 where
     T: Default + Clone + Copy + Equivalence + Ord,
 {
-    let mut p: Rank = comm.size();
-    let mut rank: Rank = comm.rank();
+    let mut p: Rank = world.size();
+    let mut rank: Rank = world.rank();
 
     // Store problem size in u64 to handle very large arrays
     let mut problem_size: u64 = 0;
-    let mut arr_len: u64 = arr.len().try_into().unwrap();
+    let arr_len: u64 = arr.len().try_into().unwrap();
 
-    comm.all_reduce_into(&arr_len, &mut problem_size, SystemOperation::sum());
+    world.all_reduce_into(&arr_len, &mut problem_size, SystemOperation::sum());
 
     // Allocate all buffers
     let mut arr_: Vec<T> = vec![T::default(); (arr_len * 2) as usize];
@@ -146,7 +143,9 @@ where
         k = p;
     }
 
-    while (p > 1 && problem_size > 0) {
+    let mut comm = world.duplicate();
+
+    while p > 1 && problem_size > 0 {
 
         // Find size of color block
         let color_size = p / k;
@@ -156,7 +155,7 @@ where
         let new_rank = modulo(rank, color_size);
 
         // Find (k-1) splitters to define a k-way split
-        let split_keys: Vec<T> = parallel_select(&arr, &(k - 1), comm);
+        let split_keys: Vec<T> = parallel_select(&arr, &(k - 1), world);
 
         // Communicate
         {
@@ -191,7 +190,7 @@ where
                     let i = if i_ == 0 {
                         i1
                     } else {
-                        if ((j + color / i_) % 2 == 0) {
+                        if (j + color / i_) % 2 == 0 {
                             i1
                         } else {
                             i2
@@ -233,7 +232,7 @@ where
                     let i = if i_ == 0 {
                         i1
                     } else {
-                        if ((j + color / i_) % 2 == 0) {
+                        if (j + color / i_) % 2 == 0 {
                             i1
                         } else {
                             i2
@@ -283,7 +282,7 @@ where
 
             // Split the communicator
             {
-                *comm = comm
+                comm = comm
                     .split_by_color(mpi::topology::Color::with_value(color))
                     .unwrap();
                 p = comm.size();
