@@ -143,7 +143,7 @@ where
         k = p;
     }
 
-    let mut comm = world.duplicate();
+    let mut comm = std::mem::ManuallyDrop::new(world.duplicate());
 
     while p > 1 && problem_size > 0 {
 
@@ -282,9 +282,9 @@ where
 
             // Split the communicator
             {
-                comm = comm
+                comm = std::mem::ManuallyDrop::new(comm
                     .split_by_color(mpi::topology::Color::with_value(color))
-                    .unwrap();
+                    .unwrap());
                 p = comm.size();
                 rank = comm.rank();
             }
