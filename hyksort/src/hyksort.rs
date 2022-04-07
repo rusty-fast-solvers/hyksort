@@ -146,7 +146,7 @@ where
     }
 
     while p > 1 && problem_size > 0 {
-
+        println!("COMM {:?} WORLD {:?}", comm.as_raw(), world.as_raw());
         // Find size of color block
         let color_size = p / k;
         assert_eq!(color_size * k, p);
