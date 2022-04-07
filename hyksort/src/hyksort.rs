@@ -145,149 +145,149 @@ where
 
     let mut comm = world.duplicate();
 
-    while p > 1 && problem_size > 0 {
+    // while p > 1 && problem_size > 0 {
 
-        // Find size of color block
-        let color_size = p / k;
-        assert_eq!(color_size * k, p);
+    //     // Find size of color block
+    //     let color_size = p / k;
+    //     assert_eq!(color_size * k, p);
 
-        let color = rank / color_size;
-        let new_rank = modulo(rank, color_size);
+    //     let color = rank / color_size;
+    //     let new_rank = modulo(rank, color_size);
 
-        // Find (k-1) splitters to define a k-way split
-        let split_keys: Vec<T> = parallel_select(&arr, &(k - 1), world);
+    //     // Find (k-1) splitters to define a k-way split
+    //     let split_keys: Vec<T> = parallel_select(&arr, &(k - 1), world);
 
-        // Communicate
-        {
-            // Determine send size
-            let mut send_size: Vec<u64> = vec![0; k as usize];
-            let mut send_disp: Vec<u64> = vec![0; (k + 1) as usize];
+    //     // Communicate
+    //     {
+    //         // Determine send size
+    //         let mut send_size: Vec<u64> = vec![0; k as usize];
+    //         let mut send_disp: Vec<u64> = vec![0; (k + 1) as usize];
 
-            // Packet displacement and size to each partner process determined by the splitters found
-            send_disp[k as usize] = arr.len() as u64;
-            for i in 1..k {
-                send_disp[i as usize] = arr.lower_bound(&split_keys[(i - 1) as usize]) as u64;
-            }
+    //         // Packet displacement and size to each partner process determined by the splitters found
+    //         send_disp[k as usize] = arr.len() as u64;
+    //         for i in 1..k {
+    //             send_disp[i as usize] = arr.lower_bound(&split_keys[(i - 1) as usize]) as u64;
+    //         }
 
-            for i in 0..k {
-                send_size[i as usize] = send_disp[(i + 1) as usize] - send_disp[i as usize];
-            }
+    //         for i in 0..k {
+    //             send_size[i as usize] = send_disp[(i + 1) as usize] - send_disp[i as usize];
+    //         }
 
-            // Determine receive sizes
-            let mut recv_iter: u64 = 0;
-            let mut recv_cnt: Vec<u64> = vec![0; k as usize];
-            let mut recv_size: Vec<u64> = vec![0; k as usize];
-            let mut recv_disp: Vec<u64> = vec![0; (k + 1) as usize];
+    //         // Determine receive sizes
+    //         let mut recv_iter: u64 = 0;
+    //         let mut recv_cnt: Vec<u64> = vec![0; k as usize];
+    //         let mut recv_size: Vec<u64> = vec![0; k as usize];
+    //         let mut recv_disp: Vec<u64> = vec![0; (k + 1) as usize];
 
-            // Communicate packet sizes
-            for i_ in 0..=(k / 2) {
-                let i1 = modulo(color + i_, k);
+    //         // Communicate packet sizes
+    //         for i_ in 0..=(k / 2) {
+    //             let i1 = modulo(color + i_, k);
 
-                // Add k to ensure that this always works
-                let i2 = modulo(color + k - i_, k);
+    //             // Add k to ensure that this always works
+    //             let i2 = modulo(color + k - i_, k);
 
-                for j in 0..(if i_ == 0 || i_ == k / 2 { 1 } else { 2 }) {
-                    let i = if i_ == 0 {
-                        i1
-                    } else {
-                        if (j + color / i_) % 2 == 0 {
-                            i1
-                        } else {
-                            i2
-                        }
-                    };
+    //             for j in 0..(if i_ == 0 || i_ == k / 2 { 1 } else { 2 }) {
+    //                 let i = if i_ == 0 {
+    //                     i1
+    //                 } else {
+    //                     if (j + color / i_) % 2 == 0 {
+    //                         i1
+    //                     } else {
+    //                         i2
+    //                     }
+    //                 };
 
-                    let partner_rank = color_size * i + new_rank;
-                    let partner_process = comm.process_at_rank(partner_rank);
+    //                 let partner_rank = color_size * i + new_rank;
+    //                 let partner_process = comm.process_at_rank(partner_rank);
 
-                    mpi::point_to_point::send_receive_into(
-                        &send_size[i as usize],
-                        &partner_process,
-                        &mut recv_size[recv_iter as usize],
-                        &partner_process,
-                    );
+    //                 mpi::point_to_point::send_receive_into(
+    //                     &send_size[i as usize],
+    //                     &partner_process,
+    //                     &mut recv_size[recv_iter as usize],
+    //                     &partner_process,
+    //                 );
 
-                    recv_disp[(recv_iter + 1) as usize] =
-                        recv_disp[recv_iter as usize] + recv_size[recv_iter as usize];
-                    recv_cnt[recv_iter as usize] = recv_size[recv_iter as usize];
-                    recv_iter += 1;
-                }
-            }
+    //                 recv_disp[(recv_iter + 1) as usize] =
+    //                     recv_disp[recv_iter as usize] + recv_size[recv_iter as usize];
+    //                 recv_cnt[recv_iter as usize] = recv_size[recv_iter as usize];
+    //                 recv_iter += 1;
+    //             }
+    //         }
 
-            // Communicate packets
+    //         // Communicate packets
 
-            // Resize buffers
-            arr_.resize(recv_disp[k as usize] as usize, T::default());
+    //         // Resize buffers
+    //         arr_.resize(recv_disp[k as usize] as usize, T::default());
 
-            // Reset recv_iter
-            recv_iter = 0;
+    //         // Reset recv_iter
+    //         recv_iter = 0;
 
-            for i_ in 0..=(k / 2) {
-                let i1 = modulo(color + i_, k);
+    //         for i_ in 0..=(k / 2) {
+    //             let i1 = modulo(color + i_, k);
 
-                // Add k to ensure that this always works
-                let i2 = modulo(color + k - i_, k);
+    //             // Add k to ensure that this always works
+    //             let i2 = modulo(color + k - i_, k);
 
-                for j in 0..(if i_ == 0 || i_ == k / 2 { 1 } else { 2 }) {
-                    let i = if i_ == 0 {
-                        i1
-                    } else {
-                        if (j + color / i_) % 2 == 0 {
-                            i1
-                        } else {
-                            i2
-                        }
-                    };
-                    let partner_rank = color_size * i + new_rank;
-                    let partner_process = comm.process_at_rank(partner_rank);
+    //             for j in 0..(if i_ == 0 || i_ == k / 2 { 1 } else { 2 }) {
+    //                 let i = if i_ == 0 {
+    //                     i1
+    //                 } else {
+    //                     if (j + color / i_) % 2 == 0 {
+    //                         i1
+    //                     } else {
+    //                         i2
+    //                     }
+    //                 };
+    //                 let partner_rank = color_size * i + new_rank;
+    //                 let partner_process = comm.process_at_rank(partner_rank);
 
-                    // Receive packet bounds indices
-                    let r_lidx: usize = recv_disp[recv_iter as usize] as usize;
-                    let r_ridx: usize = r_lidx + recv_size[recv_iter as usize] as usize;
-                    assert!(r_lidx <= r_ridx);
+    //                 // Receive packet bounds indices
+    //                 let r_lidx: usize = recv_disp[recv_iter as usize] as usize;
+    //                 let r_ridx: usize = r_lidx + recv_size[recv_iter as usize] as usize;
+    //                 assert!(r_lidx <= r_ridx);
 
-                    // Send packet bounds indices
-                    let s_lidx: usize = send_disp[i as usize] as usize;
-                    let s_ridx: usize = s_lidx + send_size[i as usize] as usize;
-                    assert!(s_lidx <= s_ridx);
+    //                 // Send packet bounds indices
+    //                 let s_lidx: usize = send_disp[i as usize] as usize;
+    //                 let s_ridx: usize = s_lidx + send_size[i as usize] as usize;
+    //                 assert!(s_lidx <= s_ridx);
 
-                    mpi::request::scope(|scope| {
-                        let mut sreq =
-                            partner_process.immediate_synchronous_send(scope, &arr[s_lidx..s_ridx]);
-                        let rreq = partner_process
-                            .immediate_receive_into(scope, &mut arr_[r_lidx..r_ridx]);
-                        rreq.wait();
+    //                 mpi::request::scope(|scope| {
+    //                     let mut sreq =
+    //                         partner_process.immediate_synchronous_send(scope, &arr[s_lidx..s_ridx]);
+    //                     let rreq = partner_process
+    //                         .immediate_receive_into(scope, &mut arr_[r_lidx..r_ridx]);
+    //                     rreq.wait();
 
-                        // A workaround to mimic 'wait all' functionality
-                        loop {
-                            match sreq.test() {
-                                Ok(_) => {
-                                    break;
-                                }
-                                Err(req) => {
-                                    sreq = req;
-                                }
-                            }
-                        }
-                    });
-                    recv_iter += 1;
-                }
-            }
+    //                     // A workaround to mimic 'wait all' functionality
+    //                     loop {
+    //                         match sreq.test() {
+    //                             Ok(_) => {
+    //                                 break;
+    //                             }
+    //                             Err(req) => {
+    //                                 sreq = req;
+    //                             }
+    //                         }
+    //                     }
+    //                 });
+    //                 recv_iter += 1;
+    //             }
+    //         }
 
-            // Swap send and receive buffers
-            std::mem::swap(arr, &mut arr_);
+    //         // Swap send and receive buffers
+    //         std::mem::swap(arr, &mut arr_);
 
-            // Local sort of received data
-            arr.sort();
+    //         // Local sort of received data
+    //         arr.sort();
 
-            // Split the communicator
-            {
-                comm = comm
-                    .split_by_color(mpi::topology::Color::with_value(color))
-                    .unwrap();
-                p = comm.size();
-                rank = comm.rank();
-            }
-        }
-    }
+    //         // Split the communicator
+    //         {
+    //             comm = comm
+    //                 .split_by_color(mpi::topology::Color::with_value(color))
+    //                 .unwrap();
+    //             p = comm.size();
+    //             rank = comm.rank();
+    //         }
+    //     }
+    // }
 }
