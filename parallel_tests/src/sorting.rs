@@ -26,7 +26,7 @@ pub fn test_hyksort(universe: &Universe) {
         .take(nparticles as usize)
         .collect();
 
-    hyksort::hyksort::hyksort(&mut arr, k, &mut comm);
+    hyksort::hyksort::hyksort(&mut arr, k, comm);
 
     // Test that the minimum on this process is greater than the maximum on the previous process
     let prev_rank = if rank > 0 { rank - 1 } else { size - 1 };
@@ -53,6 +53,10 @@ pub fn test_hyksort(universe: &Universe) {
     if rank == 0 {
         println!("... HykSort Passed!")
     }
+
+    
+
+    println!("RANK {:?} {:?}", rank, arr.len());
 }
 
 pub fn test_parallel_select(universe: &Universe) {

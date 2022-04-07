@@ -120,7 +120,7 @@ where
 }
 
 /// HykSort of Sundar et. al. without the parallel merge logic.
-pub fn hyksort<T>(arr: &mut Vec<T>, mut k: Rank, comm: &mut UserCommunicator)
+pub fn hyksort<T>(arr: &mut Vec<T>, mut k: Rank, mut comm: UserCommunicator)
 where
     T: Default + Clone + Copy + Equivalence + Ord,
 {
@@ -154,7 +154,7 @@ where
         let new_rank = modulo(rank, color_size);
 
         // Find (k-1) splitters to define a k-way split
-        let split_keys: Vec<T> = parallel_select(&arr, &(k - 1), comm);
+        let split_keys: Vec<T> = parallel_select(&arr, &(k - 1), &comm);
 
         // Communicate
         {
@@ -281,7 +281,7 @@ where
 
             // Split the communicator
             {
-                *comm = comm
+                comm = comm
                     .split_by_color(mpi::topology::Color::with_value(color))
                     .unwrap();
                 p = comm.size();
