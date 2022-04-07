@@ -10,10 +10,11 @@ use rand::{distributions::Uniform, Rng};
 use hyksort::hyksort::{hyksort, parallel_select};
 
 pub fn test_hyksort(universe: &Universe) {
-    let world = universe.world().duplicate();
+    let world = universe.world();
+    let mut comm = world.duplicate();
     let size = world.size();
     let rank: Rank = world.rank();
-    let k = 4;
+    let k = 2;
 
     // Sample nparticles randomly in range [min, max)
     let nparticles: u64 = 1000;
@@ -25,7 +26,7 @@ pub fn test_hyksort(universe: &Universe) {
         .take(nparticles as usize)
         .collect();
 
-    hyksort(&mut arr, k, &world);
+    hyksort::hyksort::hyksort(&mut arr, k, &mut comm);
 
     // Test that the minimum on this process is greater than the maximum on the previous process
     let prev_rank = if rank > 0 { rank - 1 } else { size - 1 };
@@ -56,6 +57,8 @@ pub fn test_hyksort(universe: &Universe) {
 
 pub fn test_parallel_select(universe: &Universe) {
     let world = universe.world();
+    let comm = world.duplicate();
+    let size = world.size();
     let rank: Rank = world.rank();
 
     if rank == 0 {
