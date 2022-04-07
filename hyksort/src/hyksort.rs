@@ -143,7 +143,7 @@ where
         k = p;
     }
 
-    let mut comm = std::mem::ManuallyDrop::new(world.duplicate());
+    let mut comm = world.duplicate();
 
     while p > 1 && problem_size > 0 {
 
