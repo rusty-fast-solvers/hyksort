@@ -123,14 +123,16 @@ pub fn hyksort<T>(arr: &mut Vec<T>, mut k: Rank, world: &UserCommunicator)
 where
     T: Default + Clone + Copy + Equivalence + Ord,
 {
-    let mut p: Rank = world.size();
-    let mut rank: Rank = world.rank();
+    let mut comm = world.duplicate();
+    
+    let mut p: Rank = comm.size();
+    let mut rank: Rank = comm.rank();
 
     // Store problem size in u64 to handle very large arrays
     let mut problem_size: u64 = 0;
     let arr_len: u64 = arr.len().try_into().unwrap();
 
-    world.all_reduce_into(&arr_len, &mut problem_size, SystemOperation::sum());
+    comm.all_reduce_into(&arr_len, &mut problem_size, SystemOperation::sum());
 
     // Allocate all buffers
     let mut arr_: Vec<T> = vec![T::default(); (arr_len * 2) as usize];
@@ -142,8 +144,6 @@ where
     if k > p {
         k = p;
     }
-
-    let mut comm = world.duplicate();
 
     while p > 1 && problem_size > 0 {
 
@@ -280,18 +280,14 @@ where
             // Local sort of received data
             arr.sort();
 
-            // Split the communicator
-            {
-                let new_comm = comm
-                    .split_by_color(mpi::topology::Color::with_value(color))
-                    .unwrap();
+            // Split the communicator 
+            comm = comm
+                .split_by_color(mpi::topology::Color::with_value(color))
+                .unwrap();
 
-                std::mem::drop(comm);
-
-                comm = new_comm;
-                p = comm.size();
-                rank = comm.rank();
-            }
+            p = comm.size();
+            rank = comm.rank();
+            
         }
     }
 }
