@@ -282,9 +282,13 @@ where
 
             // Split the communicator
             {
-                let comm = comm
+                let new_comm = comm
                     .split_by_color(mpi::topology::Color::with_value(color))
                     .unwrap();
+
+                std::mem::drop(comm);
+
+                comm = new_comm;
                 p = comm.size();
                 rank = comm.rank();
             }
