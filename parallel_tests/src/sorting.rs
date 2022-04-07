@@ -2,12 +2,13 @@ extern crate hyksort;
 extern crate mpi;
 
 use mpi::environment::Universe;
-use mpi::topology::{Color, Rank};
+use mpi::collective::SystemOperation;
+use mpi::topology::{Rank};
 use mpi::traits::*;
 
 use rand::{distributions::Uniform, Rng};
 
-use hyksort::hyksort::{hyksort, parallel_select};
+use hyksort::hyksort::{hyksort};
 
 pub fn test_hyksort(universe: &Universe) {
     let world = universe.world();
@@ -26,7 +27,7 @@ pub fn test_hyksort(universe: &Universe) {
         .take(nparticles as usize)
         .collect();
 
-    hyksort::hyksort::hyksort(&mut arr, k, comm);
+    hyksort(&mut arr, k, comm);
 
     // Test that the minimum on this process is greater than the maximum on the previous process
     let prev_rank = if rank > 0 { rank - 1 } else { size - 1 };
@@ -54,9 +55,11 @@ pub fn test_hyksort(universe: &Universe) {
         println!("... HykSort Passed!")
     }
 
-    
+    let mut problem_size = 0;
+    world.all_reduce_into(&arr.len(), &mut problem_size, SystemOperation::sum());
 
-    println!("RANK {:?} {:?}", rank, arr.len());
+    assert!(problem_size == (size as u64)*nparticles);
+
 }
 
 pub fn test_parallel_select(universe: &Universe) {

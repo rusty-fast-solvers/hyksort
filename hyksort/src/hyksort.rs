@@ -280,13 +280,11 @@ where
             arr.sort();
 
             // Split the communicator
-            {
-                comm = comm
-                    .split_by_color(mpi::topology::Color::with_value(color))
-                    .unwrap();
-                p = comm.size();
-                rank = comm.rank();
-            }
+            comm = comm
+                .split_by_color(mpi::topology::Color::with_value(color))
+                .unwrap();
+            p = comm.size();
+            rank = comm.rank();
         }
     }
 }
