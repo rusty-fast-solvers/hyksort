@@ -12,7 +12,7 @@ use hyksort::hyksort::{hyksort};
 
 pub fn test_hyksort(universe: &Universe) {
     let world = universe.world();
-    let mut comm = world.duplicate();
+    let comm = world.duplicate();
     let size = world.size();
     let rank: Rank = world.rank();
     let k = 2;
