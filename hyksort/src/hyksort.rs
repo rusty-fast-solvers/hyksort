@@ -10,6 +10,7 @@ use mpi::topology::{Rank};
 use mpi::topology::{UserCommunicator};
 use mpi::traits::*;
 use mpi::{Count};
+use mpi::request::WaitGuard;
 
 use superslice::*;
 
@@ -251,24 +252,12 @@ where
                     assert!(s_lidx <= s_ridx);
 
                     mpi::request::scope(|scope| {
-                        let mut sreq =
-                            partner_process.immediate_synchronous_send(scope, &arr[s_lidx..s_ridx]);
-                        let rreq = partner_process
-                            .immediate_receive_into(scope, &mut arr_[r_lidx..r_ridx]);
-                        rreq.wait();
-
-                        // A workaround to mimic 'wait all' functionality
-                        loop {
-                            match sreq.test() {
-                                Ok(_) => {
-                                    break;
-                                }
-                                Err(req) => {
-                                    sreq = req;
-                                }
-                            }
-                        }
+                        let rreq = WaitGuard::from(partner_process
+                            .immediate_receive_into(scope, &mut arr_[r_lidx..r_ridx]));
+                        let sreq = WaitGuard::from(partner_process
+                            .immediate_synchronous_send(scope, &arr[s_lidx..s_ridx]));
                     });
+
                     recv_iter += 1;
                 }
             }
