@@ -21,7 +21,7 @@ pub fn modulo(a: i32, b: i32) -> i32 {
 
 /// Parallel selection algorithm to determine 'k' splitters from the global array currently being
 /// considered in the communicator.
-pub fn parallel_select<T>(arr: &Vec<T>, &k: &Rank, comm: &UserCommunicator) -> Vec<T>
+pub fn parallel_select<T>(arr: &Vec<T>, &k: &Rank, comm: UserCommunicator) -> Vec<T>
 where
     T: Default + Clone + Copy + Equivalence + Ord,
 {
@@ -35,9 +35,9 @@ where
     comm.all_reduce_into(&arr.len(), &mut problem_size, SystemOperation::sum());
 
     // Determine number of samples for splitters, beta=20 taken from paper
-    // let beta = 20;
-    // let mut split_count: Count = (beta*k*(arr_len as Count))/(problem_size as Count);
-    let split_count = 10;
+    // // let beta = 20;
+    // // let mut split_count: Count = (beta*k*(arr_len as Count))/(problem_size as Count);
+    let split_count = 1;
     let mut rng = rand::thread_rng();
 
     // Randomly sample splitters from local section of array
@@ -67,6 +67,7 @@ where
         global_split_displacements[(p - 1) as usize] + global_split_counts[(p - 1) as usize];
 
     let mut global_splitters: Vec<T> = vec![T::default(); global_split_count as usize];
+
     {
         let mut partition = PartitionMut::new(
             &mut global_splitters[..],
@@ -96,6 +97,7 @@ where
             SystemOperation::sum(),
         );
     }
+    // println!("RANK {:?} HERE {:?}", comm.rank(), global_disp);
 
     // We're performing a k-way split, find the keys associated with a split by comparing the
     // optimal splitters with the sampled ones
@@ -117,6 +119,26 @@ where
     }
 
     split_keys.sort();
+    split_keys
+    // let mut split_keys: Vec<T> = Vec::new();
+
+    // for i in 0..(k as usize) {
+    //     split_keys.push(arr[i])
+    // }
+
+    // split_keys
+}
+
+pub fn parallel_select_dummy<T>(arr: &Vec<T>, &k: &Rank, comm: UserCommunicator) -> Vec<T>
+where
+    T: Default + Clone + Copy + Equivalence + Ord,
+{
+    let mut split_keys: Vec<T> = Vec::new();
+
+    for i in 0..(k as usize) {
+        split_keys.push(arr[i])
+    }
+
     split_keys
 }
 
@@ -155,7 +177,8 @@ where
         let new_rank = modulo(rank, color_size);
 
         // Find (k-1) splitters to define a k-way split
-        let split_keys: Vec<T> = parallel_select(&arr, &(k - 1), &comm);
+        let tmp = comm.duplicate();
+        let split_keys: Vec<T> = parallel_select(&arr, &(k - 1), tmp);
 
         // Communicate
         {
@@ -185,7 +208,7 @@ where
 
                 // Add k to ensure that this always works
                 let i2 = modulo(color + k - i_, k);
-
+                
                 for j in 0..(if i_ == 0 || i_ == k / 2 { 1 } else { 2 }) {
                     let i = if i_ == 0 {
                         i1
@@ -197,8 +220,11 @@ where
                         }
                     };
 
+
+                
                     let partner_rank = color_size * i + new_rank;
                     let partner_process = comm.process_at_rank(partner_rank);
+                    
 
                     mpi::point_to_point::send_receive_into(
                         &send_size[i as usize],
@@ -207,8 +233,7 @@ where
                         &partner_process,
                     );
 
-                    recv_disp[(recv_iter + 1) as usize] =
-                        recv_disp[recv_iter as usize] + recv_size[recv_iter as usize];
+                    recv_disp[(recv_iter + 1) as usize] = recv_disp[recv_iter as usize] + recv_size[recv_iter as usize];
                     recv_cnt[recv_iter as usize] = recv_size[recv_iter as usize];
                     recv_iter += 1;
                 }
