@@ -10,6 +10,7 @@ use mpi::topology::{Rank};
 use mpi::topology::{UserCommunicator};
 use mpi::traits::*;
 use mpi::{Count};
+use mpi::request::WaitGuard;
 
 use superslice::*;
 
@@ -20,23 +21,24 @@ pub fn modulo(a: i32, b: i32) -> i32 {
 
 /// Parallel selection algorithm to determine 'k' splitters from the global array currently being
 /// considered in the communicator.
-pub fn parallel_select<T>(arr: &Vec<T>, &k: &Rank, comm: &UserCommunicator) -> Vec<T>
+pub fn parallel_select<T>(arr: &Vec<T>, &k: &Rank, comm: UserCommunicator) -> Vec<T>
 where
-    T: Default + Clone + Copy + Equivalence + Ord,
+    T: Default + Clone + Copy + Equivalence + Ord + std::fmt::Debug,
 {
     let p: Rank = comm.size();
 
     // Store problem size in u64 to handle very large arrays
     let mut problem_size: u64 = 0;
+    let mut min_arr_size: u64 = 0;
     let arr_len: u64 = arr.len().try_into().unwrap();
 
     // Communicate the total problem size to each process in communicator
     comm.all_reduce_into(&arr.len(), &mut problem_size, SystemOperation::sum());
+    comm.all_reduce_into(&arr.len(), &mut min_arr_size, SystemOperation::min());
 
     // Determine number of samples for splitters, beta=20 taken from paper
-    // let beta = 20;
-    // let mut split_count: Count = (beta*k*(arr_len as Count))/(problem_size as Count);
-    let split_count = 10;
+    let beta = 20;
+    let split_count: Count = (beta*k*(arr_len as Count))/(problem_size as Count);
     let mut rng = rand::thread_rng();
 
     // Randomly sample splitters from local section of array
@@ -66,6 +68,7 @@ where
         global_split_displacements[(p - 1) as usize] + global_split_counts[(p - 1) as usize];
 
     let mut global_splitters: Vec<T> = vec![T::default(); global_split_count as usize];
+
     {
         let mut partition = PartitionMut::new(
             &mut global_splitters[..],
@@ -86,15 +89,23 @@ where
     }
 
     // The global rank is found via a simple sum
-    let mut global_disp = vec![0; global_split_count as usize];
-
-    for i in 0..global_split_count {
-        comm.all_reduce_into(
-            &disp[i as usize],
-            &mut global_disp[i as usize],
-            SystemOperation::sum(),
-        );
+    let root_rank = 0;
+    let root_process = comm.process_at_rank(root_rank);
+    let mut global_disp: Vec<u64> = vec![0; global_split_count as usize];
+    
+    for i in 0..(global_split_count as usize) {
+        if comm.rank() == root_rank {
+            comm
+                .process_at_rank(root_rank)
+                .reduce_into_root(&disp[i], &mut global_disp[i], SystemOperation::sum());
+        } else {
+            comm 
+                .process_at_rank(root_rank)
+                .reduce_into(&disp[i], SystemOperation::sum());
+        }
     }
+
+    root_process.broadcast_into(&mut global_disp);
 
     // We're performing a k-way split, find the keys associated with a split by comparing the
     // optimal splitters with the sampled ones
@@ -102,11 +113,11 @@ where
 
     for i in 0..k {
         let mut _disp = 0;
-        let optimal_splitter: u64 = ((i + 1) as u64) * problem_size / (k as u64 + 1);
+        let optimal_splitter: i64 = (((i + 1) as u64) * problem_size / (k as u64 + 1)).try_into().unwrap();
 
-        for j in 0..global_split_count {
-            if (global_disp[j as usize] - optimal_splitter as i32).abs()
-                < (global_disp[_disp as usize] - optimal_splitter as i32).abs()
+        for j in 0..(global_split_count as usize) {
+            if (global_disp[j] as i64 - optimal_splitter).abs()
+                < (global_disp[_disp] as i64 - optimal_splitter).abs()
             {
                 _disp = j;
             }
@@ -122,7 +133,7 @@ where
 /// HykSort of Sundar et. al. without the parallel merge logic.
 pub fn hyksort<T>(arr: &mut Vec<T>, mut k: Rank, mut comm: UserCommunicator)
 where
-    T: Default + Clone + Copy + Equivalence + Ord,
+    T: Default + Clone + Copy + Equivalence + Ord + std::fmt::Debug,
 {
     let mut p: Rank = comm.size();
     let mut rank: Rank = comm.rank();
@@ -154,7 +165,8 @@ where
         let new_rank = modulo(rank, color_size);
 
         // Find (k-1) splitters to define a k-way split
-        let split_keys: Vec<T> = parallel_select(&arr, &(k - 1), &comm);
+        let tmp = comm.duplicate();
+        let split_keys: Vec<T> = parallel_select(&arr, &(k - 1), tmp);
 
         // Communicate
         {
@@ -206,15 +218,13 @@ where
                         &partner_process,
                     );
 
-                    recv_disp[(recv_iter + 1) as usize] =
-                        recv_disp[recv_iter as usize] + recv_size[recv_iter as usize];
+                    recv_disp[(recv_iter + 1) as usize] = recv_disp[recv_iter as usize] + recv_size[recv_iter as usize];
                     recv_cnt[recv_iter as usize] = recv_size[recv_iter as usize];
                     recv_iter += 1;
                 }
             }
 
             // Communicate packets
-
             // Resize buffers
             arr_.resize(recv_disp[k as usize] as usize, T::default());
 
@@ -251,24 +261,12 @@ where
                     assert!(s_lidx <= s_ridx);
 
                     mpi::request::scope(|scope| {
-                        let mut sreq =
-                            partner_process.immediate_synchronous_send(scope, &arr[s_lidx..s_ridx]);
-                        let rreq = partner_process
-                            .immediate_receive_into(scope, &mut arr_[r_lidx..r_ridx]);
-                        rreq.wait();
-
-                        // A workaround to mimic 'wait all' functionality
-                        loop {
-                            match sreq.test() {
-                                Ok(_) => {
-                                    break;
-                                }
-                                Err(req) => {
-                                    sreq = req;
-                                }
-                            }
-                        }
+                        let rreq = WaitGuard::from(partner_process
+                            .immediate_receive_into(scope, &mut arr_[r_lidx..r_ridx]));
+                        let sreq = WaitGuard::from(partner_process
+                            .immediate_synchronous_send(scope, &arr[s_lidx..s_ridx]));
                     });
+
                     recv_iter += 1;
                 }
             }

@@ -1,24 +1,24 @@
+/// Tests for Parallel Select and Hyksort algorithms.
 extern crate hyksort;
 extern crate mpi;
 
 use mpi::environment::Universe;
 use mpi::collective::SystemOperation;
-use mpi::topology::{Rank};
+use mpi::topology::{Rank, SystemCommunicator};
 use mpi::traits::*;
 
 use rand::{distributions::Uniform, Rng};
 
-use hyksort::hyksort::{hyksort};
+use hyksort::hyksort::{hyksort, parallel_select};
 
-pub fn test_hyksort(universe: &Universe) {
-    let world = universe.world();
-    let mut comm = world.duplicate();
+pub fn test_hyksort(world: &SystemCommunicator) {
+    let comm = world.duplicate();
     let size = world.size();
     let rank: Rank = world.rank();
     let k = 2;
 
     // Sample nparticles randomly in range [min, max)
-    let nparticles: u64 = 1000;
+    let nparticles: u64 = 100;
     let min = 0;
     let max = 10000000000;
     let range = Uniform::from(min..max);
@@ -55,6 +55,7 @@ pub fn test_hyksort(universe: &Universe) {
         println!("... HykSort Passed!")
     }
 
+    // Test that no elements of the distributed array are lost
     let mut problem_size = 0;
     world.all_reduce_into(&arr.len(), &mut problem_size, SystemOperation::sum());
 
@@ -62,11 +63,31 @@ pub fn test_hyksort(universe: &Universe) {
 
 }
 
-pub fn test_parallel_select(universe: &Universe) {
-    let world = universe.world();
+pub fn test_parallel_select(world: &SystemCommunicator) {
     let comm = world.duplicate();
     let size = world.size();
     let rank: Rank = world.rank();
+    let k = 4;
+
+    // Sample nparticles randomly in range [min, max)
+    let nparticles: u64 = 10;
+    let min = 0;
+    let max = 10000000000;
+    let range = Uniform::from(min..max);
+    let mut arr: Vec<u64> = rand::thread_rng()
+        .sample_iter(&range)
+        .take(nparticles as usize)
+        .collect();
+
+    let splitters = parallel_select(&mut arr, &k, comm);
+
+    // Test that the number of splitters matches 'K'
+    assert!(splitters.len() == k as usize);
+
+    // Test that the splitters are within the range of the array.
+    for splitter in splitters {
+        assert!(min <= splitter && splitter <= max);
+    }
 
     if rank == 0 {
         println!("... Parallel Select Passed!")

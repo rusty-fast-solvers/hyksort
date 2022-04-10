@@ -4,7 +4,6 @@ A Rusty implementation of HykSort from Sundar et. al [1] for ```Vec<T>``` arrays
 
 The local sorts are not at all optimised, and this implementation uses Rust's ```.sort()``` method implemented via the ```Ord``` trait.
 
-We focus on implementing the communication logic, as the only way to communicate large slices is via point to point calls, MPI collectives often rely on the ```MPI_Count``` data type which is a wrapper for a ```c_int```, hence limited the size of packets.
 
 ## Compile
 
