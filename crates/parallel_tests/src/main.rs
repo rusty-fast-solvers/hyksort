@@ -10,7 +10,7 @@ fn main() {
     if rank == 0 {
         println!("Testing HykSort: ");
     };
-    test_hyksort(&universe);
+    test_hyksort(&world);
 
     let world = universe.world();
     let rank = world.rank();
@@ -19,5 +19,5 @@ fn main() {
         println!("Testing Parallel Select: ");
     };
 
-    test_parallel_select(&universe);
+    test_parallel_select(&world);
 }

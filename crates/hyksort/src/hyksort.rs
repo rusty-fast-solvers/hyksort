@@ -23,21 +23,22 @@ pub fn modulo(a: i32, b: i32) -> i32 {
 /// considered in the communicator.
 pub fn parallel_select<T>(arr: &Vec<T>, &k: &Rank, comm: UserCommunicator) -> Vec<T>
 where
-    T: Default + Clone + Copy + Equivalence + Ord,
+    T: Default + Clone + Copy + Equivalence + Ord + std::fmt::Debug,
 {
     let p: Rank = comm.size();
 
     // Store problem size in u64 to handle very large arrays
     let mut problem_size: u64 = 0;
+    let mut min_arr_size: u64 = 0;
     let arr_len: u64 = arr.len().try_into().unwrap();
 
     // Communicate the total problem size to each process in communicator
     comm.all_reduce_into(&arr.len(), &mut problem_size, SystemOperation::sum());
+    comm.all_reduce_into(&arr.len(), &mut min_arr_size, SystemOperation::min());
 
     // Determine number of samples for splitters, beta=20 taken from paper
-    // // let beta = 20;
-    // // let mut split_count: Count = (beta*k*(arr_len as Count))/(problem_size as Count);
-    let split_count = 1;
+    let beta = 20;
+    let split_count: Count = (beta*k*(arr_len as Count))/(problem_size as Count);
     let mut rng = rand::thread_rng();
 
     // Randomly sample splitters from local section of array
@@ -88,16 +89,23 @@ where
     }
 
     // The global rank is found via a simple sum
-    let mut global_disp = vec![0; global_split_count as usize];
-
-    for i in 0..global_split_count {
-        comm.all_reduce_into(
-            &disp[i as usize],
-            &mut global_disp[i as usize],
-            SystemOperation::sum(),
-        );
+    let root_rank = 0;
+    let root_process = comm.process_at_rank(root_rank);
+    let mut global_disp: Vec<u64> = vec![0; global_split_count as usize];
+    
+    for i in 0..(global_split_count as usize) {
+        if comm.rank() == root_rank {
+            comm
+                .process_at_rank(root_rank)
+                .reduce_into_root(&disp[i], &mut global_disp[i], SystemOperation::sum());
+        } else {
+            comm 
+                .process_at_rank(root_rank)
+                .reduce_into(&disp[i], SystemOperation::sum());
+        }
     }
-    // println!("RANK {:?} HERE {:?}", comm.rank(), global_disp);
+
+    root_process.broadcast_into(&mut global_disp);
 
     // We're performing a k-way split, find the keys associated with a split by comparing the
     // optimal splitters with the sampled ones
@@ -105,11 +113,11 @@ where
 
     for i in 0..k {
         let mut _disp = 0;
-        let optimal_splitter: u64 = ((i + 1) as u64) * problem_size / (k as u64 + 1);
+        let optimal_splitter: i64 = (((i + 1) as u64) * problem_size / (k as u64 + 1)).try_into().unwrap();
 
-        for j in 0..global_split_count {
-            if (global_disp[j as usize] - optimal_splitter as i32).abs()
-                < (global_disp[_disp as usize] - optimal_splitter as i32).abs()
+        for j in 0..(global_split_count as usize) {
+            if (global_disp[j] as i64 - optimal_splitter).abs()
+                < (global_disp[_disp] as i64 - optimal_splitter).abs()
             {
                 _disp = j;
             }
@@ -120,32 +128,12 @@ where
 
     split_keys.sort();
     split_keys
-    // let mut split_keys: Vec<T> = Vec::new();
-
-    // for i in 0..(k as usize) {
-    //     split_keys.push(arr[i])
-    // }
-
-    // split_keys
-}
-
-pub fn parallel_select_dummy<T>(arr: &Vec<T>, &k: &Rank, comm: UserCommunicator) -> Vec<T>
-where
-    T: Default + Clone + Copy + Equivalence + Ord,
-{
-    let mut split_keys: Vec<T> = Vec::new();
-
-    for i in 0..(k as usize) {
-        split_keys.push(arr[i])
-    }
-
-    split_keys
 }
 
 /// HykSort of Sundar et. al. without the parallel merge logic.
 pub fn hyksort<T>(arr: &mut Vec<T>, mut k: Rank, mut comm: UserCommunicator)
 where
-    T: Default + Clone + Copy + Equivalence + Ord,
+    T: Default + Clone + Copy + Equivalence + Ord + std::fmt::Debug,
 {
     let mut p: Rank = comm.size();
     let mut rank: Rank = comm.rank();
@@ -208,7 +196,7 @@ where
 
                 // Add k to ensure that this always works
                 let i2 = modulo(color + k - i_, k);
-                
+
                 for j in 0..(if i_ == 0 || i_ == k / 2 { 1 } else { 2 }) {
                     let i = if i_ == 0 {
                         i1
@@ -220,11 +208,8 @@ where
                         }
                     };
 
-
-                
                     let partner_rank = color_size * i + new_rank;
                     let partner_process = comm.process_at_rank(partner_rank);
-                    
 
                     mpi::point_to_point::send_receive_into(
                         &send_size[i as usize],
@@ -240,7 +225,6 @@ where
             }
 
             // Communicate packets
-
             // Resize buffers
             arr_.resize(recv_disp[k as usize] as usize, T::default());
 
