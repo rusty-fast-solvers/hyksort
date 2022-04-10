@@ -14,7 +14,7 @@ export RUSTFLAGS="-C target-feature=+avx2,+fma"
 cargo build --release
 ```
 
-## Test
+## Test 
 
 Run parallel tests.
 
