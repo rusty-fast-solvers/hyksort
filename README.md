@@ -14,6 +14,14 @@ export RUSTFLAGS="-C target-feature=+avx2,+fma"
 cargo build --release
 ```
 
+## Test
+
+Run parallel tests.
+
+```bash
+cargo build && mpirun -n <nprocs> target/<debug/release>/parallel_tests
+```
+
 ## Archer 2
 
 Scaling experiments have been performed on Archer 2, with 6 billion integers on 64 ranks spread across 32 nodes being sorted in approximately 20 seconds.
