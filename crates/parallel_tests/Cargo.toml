@@ -1,12 +1,12 @@
 [package]
 name = "parallel_tests"
-version = "0.1.0"
+version = "1.0.0"
 edition = "2018"
 
 # See more keys and their definitions at https://doc.rust-lang.org/cargo/reference/manifest.html
 
 [dependencies]
-hyksort = {path = "../hyksort"}
-mpi = { git = "https://github.com/rsmpi/rsmpi", branch = "main"}
+hyksort = "1.0.0"
+mpi = "0.6.0"
 rand = "0.8.4"
 superslice = "1"
