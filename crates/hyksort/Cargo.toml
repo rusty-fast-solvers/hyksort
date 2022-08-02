@@ -6,6 +6,6 @@ edition = "2018"
 # See more keys and their definitions at https://doc.rust-lang.org/cargo/reference/manifest.html
 
 [dependencies]
-mpi = { git = "https://github.com/rsmpi/rsmpi", branch = "main"}
+mpi = { git = "https://github.com/skailasa/rsmpi", branch = "enh/archer-builds"}
 rand = "0.8.4"
 superslice = "1"
