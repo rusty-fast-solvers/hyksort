@@ -38,7 +38,13 @@ where
 
     // Determine number of samples for splitters, beta=20 taken from paper
     let beta = 20;
-    let split_count: Count = (beta*k*(arr_len as Count))/(problem_size as Count);
+    let numerator: f64 = (beta*k*(arr_len as Count)) as f64;
+    let denominator: f64 = problem_size as f64;
+    let mut split_count: Count = (numerator/denominator).ceil() as Count;
+    if split_count > arr_len as Count {
+        split_count = arr_len as Count;
+    }
+
     let mut rng = rand::thread_rng();
 
     // Randomly sample splitters from local section of array
@@ -46,7 +52,7 @@ where
 
     for i in 0..split_count {
         let mut idx: u64 = rng.gen::<u64>();
-        idx = idx % arr_len;
+        idx %= arr_len;
         splitters[i as usize] = arr[idx as usize];
     }
 
@@ -166,7 +172,7 @@ where
 
         // Find (k-1) splitters to define a k-way split
         let tmp = comm.duplicate();
-        let split_keys: Vec<T> = parallel_select(&arr, &(k - 1), tmp);
+        let split_keys: Vec<T> = parallel_select(arr, &(k - 1), tmp);
 
         // Communicate
         {
@@ -261,7 +267,7 @@ where
                     assert!(s_lidx <= s_ridx);
 
                     mpi::request::scope(|scope| {
-                        let rreq = WaitGuard::from(partner_process
+                        let _rreq = WaitGuard::from(partner_process
                             .immediate_receive_into(scope, &mut arr_[r_lidx..r_ridx]));
                         let sreq = WaitGuard::from(partner_process
                             .immediate_synchronous_send(scope, &arr[s_lidx..s_ridx]));

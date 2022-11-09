@@ -18,7 +18,7 @@ pub fn test_hyksort(world: &SystemCommunicator) {
     let k = 2;
 
     // Sample nparticles randomly in range [min, max)
-    let nparticles: u64 = 100;
+    let nparticles: u64 = 100000;
     let min = 0;
     let max = 10000000000;
     let range = Uniform::from(min..max);
@@ -34,13 +34,13 @@ pub fn test_hyksort(world: &SystemCommunicator) {
     let prev_process = world.process_at_rank(prev_rank);
 
     if rank > 0 {
-        let min: u64 = arr.iter().min().unwrap().clone();
+        let min: u64 = *arr.iter().min().unwrap();
         prev_process.send(&min);
     }
 
     if rank < (size - 1) {
         let (rec, _) = world.any_process().receive_vec::<u64>();
-        let max: u64 = arr.iter().max().unwrap().clone();
+        let max: u64 = *arr.iter().max().unwrap();
         assert!(max <= rec[0], "{:?} {:?}", max, rec);
     }
 
@@ -70,7 +70,7 @@ pub fn test_parallel_select(world: &SystemCommunicator) {
     let k = 4;
 
     // Sample nparticles randomly in range [min, max)
-    let nparticles: u64 = 10;
+    let nparticles: u64 = 10000;
     let min = 0;
     let max = 10000000000;
     let range = Uniform::from(min..max);
@@ -79,7 +79,7 @@ pub fn test_parallel_select(world: &SystemCommunicator) {
         .take(nparticles as usize)
         .collect();
 
-    let splitters = parallel_select(&mut arr, &k, comm);
+    let splitters = parallel_select(&arr, &k, comm);
 
     // Test that the number of splitters matches 'K'
     assert!(splitters.len() == k as usize);
